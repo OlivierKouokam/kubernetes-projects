@@ -192,6 +192,7 @@ lsmod | grep overlay
 > 📖 **Doc officielle** : https://kubernetes.io/docs/setup/production-environment/container-runtimes/#containerd
 
 ```bash
+export DEBIAN_FRONTEND=noninteractive
 # Installation des dépendances
 sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
 
