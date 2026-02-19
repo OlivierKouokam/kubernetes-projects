@@ -245,12 +245,10 @@ sudo apt-get install -y apt-transport-https ca-certificates curl gpg
 sudo mkdir -p -m 755 /etc/apt/keyrings
 
 # Ajout de la clé GPG du repository Kubernetes 1.34
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key | \
-  sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
 # Ajout du repository Kubernetes 1.34
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
-  https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /' | \
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /" | \
   sudo tee /etc/apt/sources.list.d/kubernetes.list
 
 # Mise à jour et installation des trois composants
