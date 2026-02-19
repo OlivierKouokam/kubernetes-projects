@@ -391,6 +391,11 @@ kubectl create -f custom-resources.yaml
 # Suivre le démarrage des pods Calico (attendre que tous soient en Running)
 watch kubectl get pods -n calico-system
 ```
+### Autoriser le controlplane à recevoir des pods normaux
+
+```bash
+kubectl taint nodes controlplane node-role.kubernetes.io/control-plane:NoSchedule-
+```
 
 ### Vérification finale du cluster
 
