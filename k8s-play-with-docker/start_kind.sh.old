@@ -26,7 +26,4 @@ else
     echo "Cluster déjà existant."
 fi
 
-kubectl get nodes
-kubectl get pods -A
-
 tail -f /dev/null
