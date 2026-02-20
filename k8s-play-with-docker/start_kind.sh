@@ -1,6 +1,15 @@
 #!/bin/bash
 set -e
 
+# Lancer Docker daemon en arrière-plan
+dockerd > /var/log/dockerd.log 2>&1 &
+
+# Attendre que Docker soit prêt
+until docker info >/dev/null 2>&1; do
+    echo "Waiting for Docker daemon..."
+    sleep 2
+done
+
 export KUBECONFIG=/kind-cluster/kubeconfig
 
 if ! kind get clusters | grep -q mycluster; then
