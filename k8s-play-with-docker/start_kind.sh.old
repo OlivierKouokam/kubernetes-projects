@@ -1,0 +1,32 @@
+#!/bin/bash
+set -e
+
+export KUBECONFIG=/kind-cluster/kubeconfig
+
+if ! kind get clusters | grep -q mycluster; then
+    echo "Création du cluster Kind..."
+    kind create cluster --name mycluster --config /kind-cluster/kind-config.yaml --kubeconfig /kind-cluster/kubeconfig
+
+    echo "Attente API server..."
+    until kubectl cluster-info >/dev/null 2>&1; do
+        sleep 2
+    done
+
+    echo "Attente Node Ready..."
+    kubectl wait --for=condition=Ready node --all --timeout=120s
+
+    echo "Installation de Flannel..."
+    kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+
+    echo "Attente que Flannel soit Ready..."
+    kubectl wait --for=condition=Ready pod -n kube-flannel --all --timeout=120s
+
+    echo "Cluster prêt."
+else
+    echo "Cluster déjà existant."
+fi
+
+kubectl get nodes
+kubectl get pods -A
+
+tail -f /dev/null
