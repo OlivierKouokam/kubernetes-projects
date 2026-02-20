@@ -14,9 +14,15 @@ if ! kind get clusters | grep -q mycluster; then
 
     echo "Attente Node Ready..."
     kubectl wait --for=condition=Ready node --all --timeout=120s
-
+    echo
+    echo "+++++++++++++++++++++++++++++++++++++"
     echo "Cluster Kubernetes-In-Docker started."
+    echo "+++++++++++++++++++++++++++++++++++++"
+    echo
+    echo "-----------------------------------------------------------"
     echo "Enter 'kubectl get node' to make sure the node is Ready !!!"
+    echo "-----------------------------------------------------------"
+    echo
 else
     echo "Cluster already exists."
 fi
