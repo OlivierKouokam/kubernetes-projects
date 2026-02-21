@@ -115,6 +115,30 @@ vagrant ssh controlplane
 vagrant ssh node1
 ```
 
+### Gestion des SnapShots 
+
+```powershell
+### Installation du plugin pour les Snapshots
+vagrant plugin install vagrant-vbguest
+```
+
+```powershell
+# Save/Susprendre les VMs
+vagrant suspend
+
+# Prendre un snapshot
+snapshot save <vm_name> <snapshot_name>
+
+# lister les snapshots
+vagrant snapshot list
+
+# Restorer un snapshot
+vagrant snapshot restore <vm_name> <snapshot_name>
+
+# Relancer les VMs
+vagrant resume
+```
+
 ---
 
 ## 3. Préparation de tous les nœuds (controlplane + worker)
