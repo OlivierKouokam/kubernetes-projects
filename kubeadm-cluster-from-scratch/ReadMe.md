@@ -126,7 +126,8 @@ vagrant ssh node1
 ### 3.1 Mise à jour du système
 
 ```bash
-sudo apt-get update && sudo apt-get upgrade -y
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-get update && sudo apt-get upgrade -y -qq
 ```
 
 ### 3.2 Configuration du fichier /etc/hosts
@@ -194,7 +195,7 @@ lsmod | grep overlay
 ```bash
 export DEBIAN_FRONTEND=noninteractive
 # Installation des dépendances
-sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+sudo apt-get install -y -qq apt-transport-https ca-certificates curl gnupg lsb-release
 
 # Ajout du repository Docker (contient containerd)
 sudo mkdir -p /etc/apt/keyrings
@@ -239,7 +240,7 @@ sudo systemctl status containerd
 
 ```bash
 # Installation des dépendances
-sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+sudo apt-get install -y -qq apt-transport-https ca-certificates curl gpg
 
 # Création du dossier keyrings s'il n'existe pas
 sudo mkdir -p -m 755 /etc/apt/keyrings
@@ -253,7 +254,7 @@ echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 
 # Mise à jour et installation des trois composants
 sudo apt-get update
-sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-get install -y -qq kubelet kubeadm kubectl
 
 # Verrouillage des versions pour éviter les mises à jour automatiques non souhaitées
 sudo apt-mark hold kubelet kubeadm kubectl
@@ -314,6 +315,31 @@ kubectl get nodes
 kubectl get pods -n kube-system
 ```
 
+### 5.4 Configuration de l'auto-complétion
+Installer bash-completion
+```bash
+sudo apt update
+sudo apt install -y bash-completion
+```
+
+Activer bash-completion dans ta session
+```bash
+echo 'source /usr/share/bash-completion/bash_completion' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Activer l’auto-complétion pour kubectl
+```bash
+echo 'source <(kubectl completion bash)' >> ~/.bashrc
+source ~/.bashrc
+```
+
+(Optionnel mais recommandé) Alias k + auto-complétion
+```bash
+echo "alias k=kubectl" >> ~/.bashrc
+echo "complete -o default -F __start_kubectl k" >> ~/.bashrc
+source ~/.bashrc
+```
 ---
 
 ## 6. Jonction du Worker au cluster
