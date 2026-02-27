@@ -1,6 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 Vagrant.configure("2") do |config|
+    config.vbguest.auto_update = false
     config.vm.define "controlplane" do |controlplane|
       controlplane.vm.box = "eazytraining/ubuntu2204"
       controlplane.vm.box_version = "1.0"
