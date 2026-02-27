@@ -1,0 +1,31 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+Vagrant.configure("2") do |config|
+    config.vm.define "controlplane" do |controlplane|
+      controlplane.vm.box = "eazytraining/ubuntu2204"
+      controlplane.vm.box_version = "1.0"
+      controlplane.vm.network "private_network", type: "static", ip: "192.168.90.10"
+      controlplane.vm.hostname = "controlplane"
+      controlplane.vm.provider "virtualbox" do |v|
+        v.name = "controlplane"
+        v.memory = 4096
+        v.cpus = 2
+      end
+    end
+    nodes=1
+    ram_node=3072
+    cpu_node=2
+    (1..nodes).each do |i|
+      config.vm.define "node#{i}" do |node|
+        node.vm.box = "eazytraining/ubuntu2204"
+        node.vm.box_version = "1.0"
+        node.vm.network "private_network", type: "static", ip: "192.168.90.1#{i}"
+        node.vm.hostname = "node#{i}"
+        node.vm.provider "virtualbox" do |v|
+          v.name = "node#{i}"
+          v.memory = ram_node
+          v.cpus = cpu_node
+        end
+      end
+    end
+  end
