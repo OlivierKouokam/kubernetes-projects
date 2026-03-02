@@ -127,7 +127,7 @@ vagrant plugin install vagrant-vbguest
 vagrant suspend
 
 # Prendre un snapshot
-snapshot save <vm_name> <snapshot_name>
+vagrant snapshot save <vm_name> <snapshot_name>
 
 # lister les snapshots
 vagrant snapshot list
@@ -709,7 +709,14 @@ source ~/.bashrc
 > 📖 **Doc officielle** : https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/  
 > 📖 **ArtifactHub chart** : https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard
 
-### 10.1 Installation via Helm
+### 10.1 Installation via kubectl
+
+```bash
+# Appliquer le manifest officiel
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+```
+
+### 10.2 Installation via Helm
 
 ```bash
 # Ajout du repository Helm pour le Dashboard
