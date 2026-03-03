@@ -679,6 +679,14 @@ exit
 kubectl delete deployment frontend redis-leader redis-follower
 kubectl delete service frontend redis-leader redis-follower
 ```
+```bash
+kubectl delete -f https://k8s.io/examples/application/guestbook/redis-leader-deployment.yaml
+kubectl delete -f https://k8s.io/examples/application/guestbook/redis-leader-service.yaml
+kubectl delete -f https://k8s.io/examples/application/guestbook/redis-follower-deployment.yaml
+kubectl delete -f https://k8s.io/examples/application/guestbook/redis-follower-service.yaml
+kubectl delete -f https://k8s.io/examples/application/guestbook/frontend-deployment.yaml
+kubectl delete -f https://k8s.io/examples/application/guestbook/frontend-service.yaml
+```
 
 ---
 
