@@ -1,0 +1,67 @@
+Étape 1  → MetalLB (L2 mode)
+Étape 2  → Ingress-Nginx Controller
+Étape 3  → NFS Server (pré-requis infra)
+Étape 4  → StorageClass + NFS Provisioner (Helm)
+Étape 5  → cert-manager + ClusterIssuer (Helm + BONUS TLS)
+Étape 6  → Namespace + Secrets (mysql passwords)
+Étape 7  → StatefulSet MySQL + Headless Service + PVC
+Étape 8  → Deployment WordPress + Service + PVC + Probes
+Étape 9  → Deployment PhpMyAdmin + Service
+Étape 10 → Ingress Rules (wordpress.local / phpmyadmin.local)
+Étape 11 → Network Policies (BONUS sécurité)
+Étape 12 → /etc/hosts sur le PC hôte
+Étape 13 → Helm charts (BONUS refactoring)
+
+Étape 1  → MetalLB (L2 mode)
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.9/config/manifests/metallb-native.yaml
+kubectl get all -n metallb-system
+kubectl apply -f - <<EOF
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  addresses:
+  - 192.168.90.150-192.168.90.255
+  autoAssign: true
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - default
+EOF
+
+Étape 2  → Ingress-Nginx Controller
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.7.0/deploy/static/provider/cloud/deploy.yaml
+
+kubectl get svc -n ingress-nginx -o wide
+# get external IP of ingress-nginx-controller service loadbalancer 
+
+Étape 3  → NFS Server (pré-requis infra)
+# Install Storage class  example-nfs
+nfs_base_url=https://raw.githubusercontent.com/kubernetes-sigs/nfs-ganesha-server-and-external-provisioner/nfs-server-provisioner-1.8.0/deploy/kubernetes
+kubectl create -f ${nfs_base_url}/deployment.yaml
+kubectl create -f ${nfs_base_url}/rbac.yaml
+kubectl create -f ${nfs_base_url}/class.yaml
+
+kubectl patch storageclass example-nfs -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
+Étape 5  → Namespace + Secrets (mysql passwords)
+
+
+
+Étape 6  → StatefulSet MySQL + Headless Service + PVC
+
+
+Étape 13  → install helm 3.7+
+
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+
+
