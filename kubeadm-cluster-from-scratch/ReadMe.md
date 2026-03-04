@@ -151,7 +151,7 @@ vagrant resume
 
 ```bash
 export DEBIAN_FRONTEND=noninteractive
-sudo apt-get update && sudo apt-get upgrade -y -qq
+sudo apt-get update && sudo apt-get upgrade -y
 ```
 
 ### 3.2 Configuration du fichier /etc/hosts
@@ -219,7 +219,7 @@ lsmod | grep overlay
 ```bash
 export DEBIAN_FRONTEND=noninteractive
 # Installation des dépendances
-sudo apt-get install -y -qq apt-transport-https ca-certificates curl gnupg lsb-release
+sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
 
 # Ajout du repository Docker (contient containerd)
 sudo mkdir -p /etc/apt/keyrings
@@ -264,7 +264,7 @@ sudo systemctl status containerd
 
 ```bash
 # Installation des dépendances
-sudo apt-get install -y -qq apt-transport-https ca-certificates curl gpg
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
 
 # Création du dossier keyrings s'il n'existe pas
 sudo mkdir -p -m 755 /etc/apt/keyrings
@@ -278,7 +278,7 @@ echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 
 # Mise à jour et installation des trois composants
 sudo apt-get update
-sudo apt-get install -y -qq kubelet kubeadm kubectl
+sudo apt-get install -y kubelet kubeadm kubectl
 
 # Verrouillage des versions pour éviter les mises à jour automatiques non souhaitées
 sudo apt-mark hold kubelet kubeadm kubectl
