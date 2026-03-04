@@ -99,7 +99,14 @@ spec:
         - name: init-mysql-config
           image: mysql:8.0
           imagePullPolicy: IfNotPresent
-          command: ["/bin/bash", "/scripts/init.sh"]
+          # command: ["/bin/bash", "/scripts/init.sh"]
+          command:
+          - /bin/bash
+          - -c
+          - |
+            chown -R 999:999 /var/log/mysql  # Si un volume est monté ici
+            /scripts/init.sh
+          
           env:
             # POD_NAME injecté via Downward API → permet de dériver l'index
             - name: POD_NAME
