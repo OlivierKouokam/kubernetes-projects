@@ -1,0 +1,113 @@
+# =============================================================================
+# COUCHE 2 — MYSQL : ConfigMap my.cnf
+# =============================================================================
+# Configuration de base de MySQL 8 avec Group Replication activé.
+#
+# Les paramètres dynamiques (server-id, local_address, seeds) sont
+# INJECTÉS par l'init container via un fichier /etc/mysql/conf.d/mgr.cnf
+# séparé, qui surcharge ce fichier de base au démarrage.
+#
+# Architecture des fichiers de config :
+#   /etc/mysql/my.cnf              ← ce ConfigMap (statique)
+#   /etc/mysql/conf.d/mgr.cnf     ← généré par init container (dynamique)
+# =============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: wordpress
+  labels:
+    app.kubernetes.io/part-of: wordpress-stack
+    app: mysql
+data:
+  my.cnf: |
+    [mysqld]
+    # ---------------------------------------------------------------
+    # Réseau
+    # ---------------------------------------------------------------
+    bind-address                              = 0.0.0.0
+    port                                      = 3306
+
+    # ---------------------------------------------------------------
+    # GTID — obligatoire pour MySQL Group Replication
+    # GTID = Global Transaction Identifier : chaque transaction
+    # reçoit un identifiant unique sur tout le cluster.
+    # ---------------------------------------------------------------
+    gtid_mode                                 = ON
+    enforce_gtid_consistency                  = ON
+
+    # ---------------------------------------------------------------
+    # Binary Log — requis pour la réplication
+    # binlog_format = ROW : réplique les données ligne par ligne
+    # (plus sûr que STATEMENT pour MGR)
+    # binlog_checksum = NONE : exigé par MGR
+    # ---------------------------------------------------------------
+    log_bin                                   = mysql-bin
+    log_slave_updates                         = ON
+    binlog_format                             = ROW
+    binlog_checksum                           = NONE
+    binlog_rows_query_log_events              = ON
+    expire_logs_days                          = 7
+
+    # ---------------------------------------------------------------
+    # Group Replication — paramètres fixes
+    # Les paramètres variables (local_address, seeds, server-id)
+    # sont dans /etc/mysql/conf.d/mgr.cnf (init container)
+    # ---------------------------------------------------------------
+    plugin_load_add                           = group_replication.so
+    group_replication_group_name             = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    group_replication_start_on_boot          = OFF
+    group_replication_single_primary_mode    = ON
+    group_replication_enforce_update_everywhere_checks = OFF
+    # Timeout en ms avant de considérer un membre comme défaillant
+    group_replication_member_expel_timeout   = 5
+    # Nb de secondes d'attente avant de re-joindre le groupe après échec
+    group_replication_rejoin_group_after_failure_time = 60
+    group_replication_autorejoin_tries       = 3
+
+    # ---------------------------------------------------------------
+    # Clone Plugin — permet à un nouveau replica de copier les données
+    # depuis un membre existant (plutôt que mysqldump)
+    # ---------------------------------------------------------------
+    plugin_load_add                           = mysql_clone.so
+
+    # ---------------------------------------------------------------
+    # InnoDB — tuning production (adapter à votre RAM disponible)
+    # Règle générale : innodb_buffer_pool_size = 70% de la RAM MySQL
+    # ---------------------------------------------------------------
+    innodb_buffer_pool_size                   = 256M
+    innodb_buffer_pool_instances              = 1
+    innodb_log_file_size                      = 64M
+    innodb_log_buffer_size                    = 16M
+    innodb_flush_log_at_trx_commit            = 1   # durabilité maximale
+    innodb_flush_method                       = O_DIRECT
+    sync_binlog                               = 1   # flush binlog à chaque commit
+
+    # ---------------------------------------------------------------
+    # Connexions et sessions
+    # ---------------------------------------------------------------
+    max_connections                           = 500
+    max_allowed_packet                        = 64M
+    wait_timeout                              = 600
+    interactive_timeout                       = 600
+
+    # ---------------------------------------------------------------
+    # Charset
+    # ---------------------------------------------------------------
+    character-set-server                      = utf8mb4
+    collation-server                          = utf8mb4_unicode_ci
+    default_authentication_plugin             = mysql_native_password
+
+    # ---------------------------------------------------------------
+    # Logs lents (slow queries) — aide au diagnostic
+    # ---------------------------------------------------------------
+    slow_query_log                            = ON
+    slow_query_log_file                       = /var/log/mysql/slow.log
+    long_query_time                           = 2
+    log_queries_not_using_indexes             = ON
+
+    # ---------------------------------------------------------------
+    # Inclure les configs dynamiques (init container)
+    # ---------------------------------------------------------------
+    !includedir /etc/mysql/conf.d/
