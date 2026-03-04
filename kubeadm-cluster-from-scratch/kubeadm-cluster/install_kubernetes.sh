@@ -214,11 +214,11 @@ master_setup() {
     log_info "kubectl configuré pour root"
 
     # Configuration pour l'utilisateur vagrant (pour usage interactif lors de vagrant ssh)
-    mkdir -p /home/vagrant/.kube
-    cp /etc/kubernetes/admin.conf /home/vagrant/.kube/config
-    chown -R vagrant:vagrant /home/vagrant/.kube
-    chmod 600 /home/vagrant/.kube/config
-    log_info "kubectl configuré pour vagrant"
+    ## mkdir -p /home/vagrant/.kube
+    ## cp /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+    ## chown -R vagrant:vagrant /home/vagrant/.kube
+    ## chmod 600 /home/vagrant/.kube/config
+    ## log_info "kubectl configuré pour vagrant"
 
     # On exporte KUBECONFIG pour la suite du script (session root)
     export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -334,182 +334,182 @@ BASHRC
 
     log_info "Helm $(helm version --short) installé"
 
-    # ── Étape M8 : Déploiement du Kubernetes Dashboard ───────────────────────
-    log_section "Étape M8 [MASTER] Déploiement du Kubernetes Dashboard"
-    # doc : https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/
+    # # ── Étape M8 : Déploiement du Kubernetes Dashboard ───────────────────────
+    # log_section "Étape M8 [MASTER] Déploiement du Kubernetes Dashboard"
+    # # doc : https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/
 
-    helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/ --force-update -q
-    helm repo update -q
+    # helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/ --force-update -q
+    # helm repo update -q
 
-    helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
-        --create-namespace \
-        --namespace kubernetes-dashboard \
-        --wait \
-        --timeout 3m \
-        --atomic    # rollback automatique si l'install échoue
+    # helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+    #     --create-namespace \
+    #     --namespace kubernetes-dashboard \
+    #     --wait \
+    #     --timeout 3m \
+    #     --atomic    # rollback automatique si l'install échoue
 
-    log_info "Dashboard déployé"
-    log_info "Services Dashboard :"
-    kubectl get svc -n kubernetes-dashboard
+    # log_info "Dashboard déployé"
+    # log_info "Services Dashboard :"
+    # kubectl get svc -n kubernetes-dashboard
 
-    # ── Étape M9 : Création des utilisateurs RBAC Dashboard ──────────────────
-    log_section "Étape M9 [MASTER] Création des utilisateurs RBAC Dashboard"
-    # doc RBAC     : https://kubernetes.io/docs/reference/access-authn-authz/rbac/
-    # doc sample   : https://github.com/kubernetes/dashboard/blob/master/docs/user/
-    #                access-control/creating-sample-user.md
+#     # ── Étape M9 : Création des utilisateurs RBAC Dashboard ──────────────────
+#     log_section "Étape M9 [MASTER] Création des utilisateurs RBAC Dashboard"
+#     # doc RBAC     : https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+#     # doc sample   : https://github.com/kubernetes/dashboard/blob/master/docs/user/
+#     #                access-control/creating-sample-user.md
 
-    # ── Utilisateur Admin (cluster-admin) ─────────────────────────────────────
-    kubectl apply -f - <<'EOF'
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: dashboard-admin
-  namespace: kubernetes-dashboard
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: dashboard-admin
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-- kind: ServiceAccount
-  name: dashboard-admin
-  namespace: kubernetes-dashboard
----
-# Secret long-lived : génère un token permanent lié au ServiceAccount admin
-apiVersion: v1
-kind: Secret
-metadata:
-  name: dashboard-admin-secret
-  namespace: kubernetes-dashboard
-  annotations:
-    kubernetes.io/service-account.name: "dashboard-admin"
-type: kubernetes.io/service-account-token
-EOF
+#     # ── Utilisateur Admin (cluster-admin) ─────────────────────────────────────
+#     kubectl apply -f - <<'EOF'
+# apiVersion: v1
+# kind: ServiceAccount
+# metadata:
+#   name: dashboard-admin
+#   namespace: kubernetes-dashboard
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRoleBinding
+# metadata:
+#   name: dashboard-admin
+# roleRef:
+#   apiGroup: rbac.authorization.k8s.io
+#   kind: ClusterRole
+#   name: cluster-admin
+# subjects:
+# - kind: ServiceAccount
+#   name: dashboard-admin
+#   namespace: kubernetes-dashboard
+# ---
+# # Secret long-lived : génère un token permanent lié au ServiceAccount admin
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: dashboard-admin-secret
+#   namespace: kubernetes-dashboard
+#   annotations:
+#     kubernetes.io/service-account.name: "dashboard-admin"
+# type: kubernetes.io/service-account-token
+# EOF
 
-    # ── Utilisateur Read-Only (viewonly) ──────────────────────────────────────
-    kubectl apply -f - <<'EOF'
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: dashboard-readonly
-  namespace: kubernetes-dashboard
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: dashboard-viewonly
-rules:
-- apiGroups: [""]
-  resources:
-  - configmaps
-  - endpoints
-  - persistentvolumeclaims
-  - pods
-  - pods/log
-  - pods/status
-  - replicationcontrollers
-  - serviceaccounts
-  - services
-  - nodes
-  - persistentvolumes
-  - namespaces
-  - events
-  - limitranges
-  - resourcequotas
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources:
-  - daemonsets
-  - deployments
-  - replicasets
-  - statefulsets
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["autoscaling"]
-  resources: ["horizontalpodautoscalers"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["batch"]
-  resources: ["cronjobs", "jobs"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses", "networkpolicies"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["storage.k8s.io"]
-  resources: ["storageclasses"]
-  verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: dashboard-readonly
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: dashboard-viewonly
-subjects:
-- kind: ServiceAccount
-  name: dashboard-readonly
-  namespace: kubernetes-dashboard
----
-# Secret long-lived : génère un token permanent lié au ServiceAccount read-only
-apiVersion: v1
-kind: Secret
-metadata:
-  name: dashboard-readonly-secret
-  namespace: kubernetes-dashboard
-  annotations:
-    kubernetes.io/service-account.name: "dashboard-readonly"
-type: kubernetes.io/service-account-token
-EOF
+#     # ── Utilisateur Read-Only (viewonly) ──────────────────────────────────────
+#     kubectl apply -f - <<'EOF'
+# apiVersion: v1
+# kind: ServiceAccount
+# metadata:
+#   name: dashboard-readonly
+#   namespace: kubernetes-dashboard
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRole
+# metadata:
+#   name: dashboard-viewonly
+# rules:
+# - apiGroups: [""]
+#   resources:
+#   - configmaps
+#   - endpoints
+#   - persistentvolumeclaims
+#   - pods
+#   - pods/log
+#   - pods/status
+#   - replicationcontrollers
+#   - serviceaccounts
+#   - services
+#   - nodes
+#   - persistentvolumes
+#   - namespaces
+#   - events
+#   - limitranges
+#   - resourcequotas
+#   verbs: ["get", "list", "watch"]
+# - apiGroups: ["apps"]
+#   resources:
+#   - daemonsets
+#   - deployments
+#   - replicasets
+#   - statefulsets
+#   verbs: ["get", "list", "watch"]
+# - apiGroups: ["autoscaling"]
+#   resources: ["horizontalpodautoscalers"]
+#   verbs: ["get", "list", "watch"]
+# - apiGroups: ["batch"]
+#   resources: ["cronjobs", "jobs"]
+#   verbs: ["get", "list", "watch"]
+# - apiGroups: ["networking.k8s.io"]
+#   resources: ["ingresses", "networkpolicies"]
+#   verbs: ["get", "list", "watch"]
+# - apiGroups: ["storage.k8s.io"]
+#   resources: ["storageclasses"]
+#   verbs: ["get", "list", "watch"]
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRoleBinding
+# metadata:
+#   name: dashboard-readonly
+# roleRef:
+#   apiGroup: rbac.authorization.k8s.io
+#   kind: ClusterRole
+#   name: dashboard-viewonly
+# subjects:
+# - kind: ServiceAccount
+#   name: dashboard-readonly
+#   namespace: kubernetes-dashboard
+# ---
+# # Secret long-lived : génère un token permanent lié au ServiceAccount read-only
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: dashboard-readonly-secret
+#   namespace: kubernetes-dashboard
+#   annotations:
+#     kubernetes.io/service-account.name: "dashboard-readonly"
+# type: kubernetes.io/service-account-token
+# EOF
 
-    log_info "Utilisateurs RBAC créés (admin + read-only)"
+#     log_info "Utilisateurs RBAC créés (admin + read-only)"
 
-    # ── Résumé final ──────────────────────────────────────────────────────────
-    log_section "✅ CLUSTER PRÊT"
+#     # ── Résumé final ──────────────────────────────────────────────────────────
+#     log_section "✅ CLUSTER PRÊT"
 
-    echo ""
-    log_info "État des nœuds :"
-    kubectl get nodes -o wide
+#     echo ""
+#     log_info "État des nœuds :"
+#     kubectl get nodes -o wide
 
-    echo ""
-    log_info "Pods système :"
-    kubectl get pods --all-namespaces | grep -v "Running\|Completed" \
-        && log_warn "Certains pods ne sont pas encore Running" \
-        || log_info "Tous les pods sont Running ou Completed"
+#     echo ""
+#     log_info "Pods système :"
+#     kubectl get pods --all-namespaces | grep -v "Running\|Completed" \
+#         && log_warn "Certains pods ne sont pas encore Running" \
+#         || log_info "Tous les pods sont Running ou Completed"
 
-    echo ""
-    log_info "══════════════════════════════════════════════════"
-    log_info " ACCÈS AU DASHBOARD"
-    log_info "══════════════════════════════════════════════════"
-    log_info " Depuis le controlplane, lancer :"
-    log_info "   kubectl port-forward svc/kubernetes-dashboard-kong-proxy \\"
-    log_info "     -n kubernetes-dashboard 8443:443 --address=0.0.0.0 &"
-    log_info ""
-    log_info " Puis ouvrir dans le navigateur de la machine hôte :"
-    log_info "   https://192.168.90.10:8443"
-    log_info "══════════════════════════════════════════════════"
+#     echo ""
+#     log_info "══════════════════════════════════════════════════"
+#     log_info " ACCÈS AU DASHBOARD"
+#     log_info "══════════════════════════════════════════════════"
+#     log_info " Depuis le controlplane, lancer :"
+#     log_info "   kubectl port-forward svc/kubernetes-dashboard-kong-proxy \\"
+#     log_info "     -n kubernetes-dashboard 8443:443 --address=0.0.0.0 &"
+#     log_info ""
+#     log_info " Puis ouvrir dans le navigateur de la machine hôte :"
+#     log_info "   https://192.168.90.10:8443"
+#     log_info "══════════════════════════════════════════════════"
 
-    echo ""
-    log_info "TOKEN ADMIN (copier pour se connecter au Dashboard) :"
-    echo "──────────────────────────────────────────────────"
-    kubectl get secret dashboard-admin-secret \
-        -n kubernetes-dashboard \
-        -o jsonpath="{.data.token}" | base64 --decode
-    echo ""
-    echo "──────────────────────────────────────────────────"
+#     echo ""
+#     log_info "TOKEN ADMIN (copier pour se connecter au Dashboard) :"
+#     echo "──────────────────────────────────────────────────"
+#     kubectl get secret dashboard-admin-secret \
+#         -n kubernetes-dashboard \
+#         -o jsonpath="{.data.token}" | base64 --decode
+#     echo ""
+#     echo "──────────────────────────────────────────────────"
 
-    echo ""
-    log_info "TOKEN READ-ONLY (copier pour se connecter au Dashboard) :"
-    echo "──────────────────────────────────────────────────"
-    kubectl get secret dashboard-readonly-secret \
-        -n kubernetes-dashboard \
-        -o jsonpath="{.data.token}" | base64 --decode
-    echo ""
-    echo "──────────────────────────────────────────────────"
-}
+#     echo ""
+#     log_info "TOKEN READ-ONLY (copier pour se connecter au Dashboard) :"
+#     echo "──────────────────────────────────────────────────"
+#     kubectl get secret dashboard-readonly-secret \
+#         -n kubernetes-dashboard \
+#         -o jsonpath="{.data.token}" | base64 --decode
+#     echo ""
+#     echo "──────────────────────────────────────────────────"
+# }
 
 # =============================================================================
 #  PARTIE WORKER — exécutée UNIQUEMENT sur les nœuds worker
