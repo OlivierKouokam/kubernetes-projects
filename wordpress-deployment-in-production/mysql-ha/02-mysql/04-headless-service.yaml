@@ -1,0 +1,52 @@
+# =============================================================================
+# COUCHE 2 — MYSQL : Headless Service
+# =============================================================================
+# Un Headless Service (clusterIP: None) ne crée PAS de Virtual IP.
+# Au lieu de cela, le DNS du cluster résout le nom du service
+# en une liste d'IPs individuelles — une par pod.
+#
+# Cela permet à MGR de connaître l'adresse exacte de chaque membre :
+#
+#   mysql-0.mysql-headless.wordpress.svc.cluster.local → IP du pod mysql-0
+#   mysql-1.mysql-headless.wordpress.svc.cluster.local → IP du pod mysql-1
+#   mysql-2.mysql-headless.wordpress.svc.cluster.local → IP du pod mysql-2
+#
+# publishNotReadyAddresses: true est CRITIQUE pour MGR :
+# Sans cela, un pod qui n'est pas encore READY (au sens K8s) ne serait pas
+# résolu en DNS, et les autres membres du groupe ne pourraient pas
+# le contacter pour l'ajouter au groupe pendant son initialisation.
+# =============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: wordpress
+  labels:
+    app.kubernetes.io/part-of: wordpress-stack
+    app: mysql
+    role: headless
+spec:
+  # Headless : pas de ClusterIP, résolution DNS directe vers les pods
+  clusterIP: None
+
+  selector:
+    app: mysql
+
+  # CRITICAL : publier les adresses DNS même si le pod n'est pas encore READY.
+  # Sans cela, un pod en cours d'initialisation MGR serait invisible
+  # pour les autres membres du groupe.
+  publishNotReadyAddresses: true
+
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+      protocol: TCP
+
+    # Port 33061 : utilisé exclusivement par MySQL Group Replication
+    # pour la communication interne entre membres (consensus Paxos)
+    - name: mgr-xcom
+      port: 33061
+      targetPort: 33061
+      protocol: TCP
