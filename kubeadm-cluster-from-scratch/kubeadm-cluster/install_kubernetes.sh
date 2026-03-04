@@ -150,7 +150,11 @@ https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
     systemctl enable containerd --quiet
     log_info "containerd $(containerd --version | awk '{print $3}') — statut : $(systemctl is-active containerd)"
 
-    # ── Étape 6 : Installation de kubeadm + kubelet + kubectl ────────────────
+    # ── Étape 6 : Installation du client nfs-common ──────────────────────────
+    sudo apt-get update
+    sudo apt-get install -y nfs-common
+
+    # ── Étape 7 : Installation de kubeadm + kubelet + kubectl ────────────────
     log_section "Étape 6/6 [COMMUN] Installation de kubeadm, kubelet, kubectl v${K8S_VERSION}"
     # doc : https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 
