@@ -253,6 +253,12 @@ sudo systemctl enable containerd
 # Vérification du statut
 sudo systemctl status containerd
 ```
+### 3.6 Installation du client nfs-common
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nfs-common
+```
 
 ---
 
