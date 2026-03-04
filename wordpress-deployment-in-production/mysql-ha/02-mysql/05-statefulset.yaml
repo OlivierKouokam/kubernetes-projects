@@ -372,8 +372,8 @@ spec:
           app: mysql
       spec:
         accessModes: ["ReadWriteOnce"]   # 1 seul pod par PVC (standard pour DB)
-        storageClassName: nfs-mysql
-        # storageClassName: example-nfs
+        # storageClassName: nfs-mysql
+        storageClassName: example-nfs
         resources:
           requests:
             # storage: 10Gi
