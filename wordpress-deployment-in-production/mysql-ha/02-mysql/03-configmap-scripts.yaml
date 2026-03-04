@@ -1,0 +1,311 @@
+# =============================================================================
+# COUCHE 2 — MYSQL : ConfigMap Scripts (init / bootstrap / monitor)
+# =============================================================================
+# Ce ConfigMap contient 3 scripts bash montés dans les containers MySQL :
+#
+#  init.sh         → init container   : génère mgr.cnf avant mysqld
+#  bootstrap.sh    → sidecar          : crée les users, démarre MGR
+#  mgr-monitor.sh  → sidecar monitor  : surveille l'état MGR toutes les 10s
+#
+# Flux d'exécution par pod :
+#
+#  Pod démarre
+#    └─► init container (init.sh)
+#          └─ génère /etc/mysql/conf.d/mgr.cnf avec server-id et adresses MGR
+#    └─► containers démarrent en parallèle :
+#          ├─ mysql          (mysqld démarre avec my.cnf + mgr.cnf)
+#          ├─ mgr-bootstrap  (bootstrap.sh — attend MySQL, crée users, lance MGR)
+#          └─ mgr-monitor    (mgr-monitor.sh — boucle infinie, écrit /mgr-status/role)
+# =============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-scripts
+  namespace: wordpress
+  labels:
+    app.kubernetes.io/part-of: wordpress-stack
+    app: mysql
+data:
+
+  # ============================================================
+  # SCRIPT 1 : init.sh
+  # Exécuté par l'INIT CONTAINER avant le démarrage de mysqld.
+  #
+  # Ce script :
+  #   1. Dérive server-id depuis l'index du pod (mysql-0 → 1, mysql-1 → 2 ...)
+  #   2. Calcule l'adresse locale MGR de ce pod
+  #   3. Calcule la liste des seeds MGR (tous les autres pods)
+  #   4. Écrit /etc/mysql/conf.d/mgr.cnf (volume emptyDir partagé)
+  # ============================================================
+  init.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    echo "=== [init.sh] Démarrage init container ==="
+
+    # --- Variables injectées par Kubernetes (downward API) ---
+    POD_NAME="${POD_NAME}"
+    NAMESPACE="${NAMESPACE}"
+    REPLICAS="${REPLICAS:-3}"
+    HEADLESS_SVC="mysql-headless"
+    GROUP_NAME="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+    # --- Dériver l'index numérique du pod ---
+    # mysql-0 → index=0 → server-id=1
+    # mysql-1 → index=1 → server-id=2  (server-id=0 est réservé, interdit)
+    POD_INDEX=$(echo "${POD_NAME}" | grep -oE '[0-9]+$')
+    SERVER_ID=$((POD_INDEX + 1))
+
+    echo "[init.sh] Pod: ${POD_NAME} | Index: ${POD_INDEX} | server-id: ${SERVER_ID}"
+
+    # --- Adresse locale de ce pod pour MGR (port 33061) ---
+    LOCAL_ADDRESS="${POD_NAME}.${HEADLESS_SVC}.${NAMESPACE}.svc.cluster.local:33061"
+
+    # --- Construire la liste des seeds (tous les pods SAUF soi-même) ---
+    SEEDS=""
+    for i in $(seq 0 $((REPLICAS - 1))); do
+      CANDIDATE="mysql-${i}.${HEADLESS_SVC}.${NAMESPACE}.svc.cluster.local:33061"
+      if [ "${CANDIDATE}" != "${LOCAL_ADDRESS}" ]; then
+        SEEDS="${SEEDS}${CANDIDATE},"
+      fi
+    done
+    # Supprimer la virgule finale
+    SEEDS="${SEEDS%,}"
+
+    echo "[init.sh] LOCAL_ADDRESS : ${LOCAL_ADDRESS}"
+    echo "[init.sh] SEEDS         : ${SEEDS}"
+
+    # --- Écrire le fichier de config MGR dynamique ---
+    # Ce fichier surcharge my.cnf grâce à !includedir /etc/mysql/conf.d/
+    cat > /etc/mysql/conf.d/mgr.cnf <<EOF
+    [mysqld]
+    # Généré automatiquement par init.sh — NE PAS MODIFIER MANUELLEMENT
+    server-id                         = ${SERVER_ID}
+    report_host                       = ${POD_NAME}.${HEADLESS_SVC}.${NAMESPACE}.svc.cluster.local
+    group_replication_local_address   = "${LOCAL_ADDRESS}"
+    group_replication_group_seeds     = "${SEEDS}"
+    EOF
+
+    echo "[init.sh] Fichier /etc/mysql/conf.d/mgr.cnf écrit avec succès."
+    echo "[init.sh] Init container terminé."
+
+  # ============================================================
+  # SCRIPT 2 : bootstrap.sh
+  # Exécuté par le SIDECAR mgr-bootstrap dans chaque pod MySQL.
+  #
+  # Ce script :
+  #   1. Attend que mysqld soit prêt (boucle sur SELECT 1)
+  #   2. Crée les users MySQL nécessaires (idempotent)
+  #   3. Configure le canal de réplication MGR
+  #   4. mysql-0 : bootstrap le groupe (premier démarrage seulement)
+  #      mysql-N : clone les données depuis mysql-0, puis rejoint le groupe
+  # ============================================================
+  bootstrap.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    echo "=== [bootstrap.sh] Démarrage sidecar bootstrap ==="
+
+    POD_NAME="${POD_NAME}"
+    NAMESPACE="${NAMESPACE}"
+    HEADLESS_SVC="mysql-headless"
+    REPLICAS="${REPLICAS:-3}"
+    POD_INDEX=$(echo "${POD_NAME}" | grep -oE '[0-9]+$')
+
+    ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD}"
+    REPL_PASSWORD="${MYSQL_REPLICATION_PASSWORD}"
+    PROXY_PASSWORD="${MYSQL_PROXYSQL_PASSWORD}"
+    WP_PASSWORD="${MYSQL_WORDPRESS_PASSWORD}"
+
+    MYSQL="mysql -uroot -p${ROOT_PASSWORD} -h127.0.0.1 --connect-timeout=10"
+
+    # ----------------------------------------------------------
+    # Étape 1 : attendre que mysqld soit opérationnel
+    # ----------------------------------------------------------
+    echo "[bootstrap.sh] Attente de mysqld..."
+    until ${MYSQL} -e "SELECT 1" &>/dev/null; do
+      echo "[bootstrap.sh] mysqld pas encore prêt — retry dans 5s..."
+      sleep 5
+    done
+    echo "[bootstrap.sh] mysqld est prêt."
+
+    # ----------------------------------------------------------
+    # Étape 2 : vérifier si le bootstrap a déjà été fait
+    # (éviter de recréer les users à chaque restart du pod)
+    # ----------------------------------------------------------
+    ALREADY_DONE=$(${MYSQL} -sN -e \
+      "SELECT COUNT(*) FROM mysql.user WHERE user='replicator';" 2>/dev/null || echo "0")
+
+    if [ "${ALREADY_DONE}" -gt "0" ]; then
+      echo "[bootstrap.sh] Users déjà créés — passage direct au démarrage MGR."
+    else
+      echo "[bootstrap.sh] Création des users MySQL..."
+
+      ${MYSQL} <<-SQL
+        -- Base de données WordPress
+        CREATE DATABASE IF NOT EXISTS wordpress
+          CHARACTER SET utf8mb4
+          COLLATE utf8mb4_unicode_ci;
+
+        -- User WordPress (lecture/écriture sur DB wordpress)
+        CREATE USER IF NOT EXISTS 'wordpress'@'%'
+          IDENTIFIED BY '${WP_PASSWORD}';
+        GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'%';
+
+        -- User PhpMyAdmin (accès complet pour l'administration)
+        CREATE USER IF NOT EXISTS 'phpmyadmin'@'%'
+          IDENTIFIED BY '${WP_PASSWORD}';
+        GRANT ALL PRIVILEGES ON *.* TO 'phpmyadmin'@'%'
+          WITH GRANT OPTION;
+
+        -- User ProxySQL (monitoring et health-check)
+        CREATE USER IF NOT EXISTS 'proxysql'@'%'
+          IDENTIFIED BY '${PROXY_PASSWORD}';
+        GRANT USAGE ON *.* TO 'proxysql'@'%';
+        GRANT REPLICATION CLIENT ON *.* TO 'proxysql'@'%';
+        GRANT SELECT ON performance_schema.* TO 'proxysql'@'%';
+
+        -- User Replicator (canal MGR + Clone Plugin)
+        CREATE USER IF NOT EXISTS 'replicator'@'%'
+          IDENTIFIED BY '${REPL_PASSWORD}';
+        GRANT REPLICATION SLAVE ON *.* TO 'replicator'@'%';
+        GRANT BACKUP_ADMIN ON *.* TO 'replicator'@'%';
+        GRANT CLONE_ADMIN ON *.* TO 'replicator'@'%';
+        GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO 'replicator'@'%';
+
+        FLUSH PRIVILEGES;
+      SQL
+      echo "[bootstrap.sh] Users créés avec succès."
+    fi
+
+    # ----------------------------------------------------------
+    # Étape 3 : configurer le canal de réplication MGR
+    # (toujours exécuté car idempotent)
+    # ----------------------------------------------------------
+    ${MYSQL} -e "
+      CHANGE MASTER TO
+        MASTER_USER='replicator',
+        MASTER_PASSWORD='${REPL_PASSWORD}'
+      FOR CHANNEL 'group_replication_recovery';
+    " 2>/dev/null || true   # ignore si déjà configuré
+
+    # ----------------------------------------------------------
+    # Étape 4 : démarrer MGR selon le rôle du pod
+    # ----------------------------------------------------------
+
+    # Vérifier si MGR est déjà en cours (restart du pod)
+    MGR_STATUS=$(${MYSQL} -sN -e "
+      SELECT MEMBER_STATE
+      FROM performance_schema.replication_group_members
+      WHERE MEMBER_HOST LIKE '$(hostname)%'
+      LIMIT 1;
+    " 2>/dev/null || echo "")
+
+    if [ "${MGR_STATUS}" = "ONLINE" ]; then
+      echo "[bootstrap.sh] MGR déjà ONLINE pour ce pod — rien à faire."
+      exit 0
+    fi
+
+    if [ "${POD_INDEX}" = "0" ]; then
+      # --------------------------------------------------------
+      # mysql-0 : BOOTSTRAPPER du groupe
+      # Il initialise le groupe MGR (une seule fois)
+      # Les autres pods rejoindront ensuite
+      # --------------------------------------------------------
+      echo "[bootstrap.sh] mysql-0 : bootstrap du groupe MGR"
+      ${MYSQL} -e "SET GLOBAL group_replication_bootstrap_group=ON;"
+      ${MYSQL} -e "START GROUP_REPLICATION;"
+      ${MYSQL} -e "SET GLOBAL group_replication_bootstrap_group=OFF;"
+      echo "[bootstrap.sh] Groupe MGR bootstrappé."
+    else
+      # --------------------------------------------------------
+      # mysql-N (N>0) : rejoindre le groupe existant
+      # Si le datadir est vide → cloner depuis mysql-0 d'abord
+      # --------------------------------------------------------
+      PRIMARY_HOST="mysql-0.${HEADLESS_SVC}.${NAMESPACE}.svc.cluster.local"
+
+      # Vérifier si le datadir est vide (nouveau pod)
+      DATA_FILES=$(find /var/lib/mysql -maxdepth 1 -name "*.ibd" 2>/dev/null | wc -l)
+
+      if [ "${DATA_FILES}" -lt "5" ]; then
+        echo "[bootstrap.sh] Datadir vide ou insuffisant — démarrage du clone depuis ${PRIMARY_HOST}"
+
+        # Attendre que mysql-0 soit prêt et le groupe bootstrappé
+        echo "[bootstrap.sh] Attente que mysql-0 soit PRIMARY..."
+        until mysql -ureplicator -p${REPL_PASSWORD} \
+              -h${PRIMARY_HOST} --connect-timeout=5 \
+              -sN -e "
+                SELECT MEMBER_STATE
+                FROM performance_schema.replication_group_members
+                WHERE MEMBER_ROLE='PRIMARY' LIMIT 1;
+              " 2>/dev/null | grep -q "ONLINE"; do
+          echo "[bootstrap.sh] mysql-0 pas encore PRIMARY — retry dans 5s..."
+          sleep 5
+        done
+
+        echo "[bootstrap.sh] Lancement du clone..."
+        ${MYSQL} -e "SET GLOBAL clone_valid_donor_list='${PRIMARY_HOST}:3306';"
+        ${MYSQL} -e "
+          CLONE INSTANCE FROM 'replicator'@'${PRIMARY_HOST}':3306
+          IDENTIFIED BY '${REPL_PASSWORD}';
+        "
+        # MySQL redémarre automatiquement après un clone
+        echo "[bootstrap.sh] Clone terminé — MySQL va redémarrer..."
+        sleep 15
+
+        # Attendre le redémarrage
+        until ${MYSQL} -e "SELECT 1" &>/dev/null; do
+          echo "[bootstrap.sh] Attente redémarrage post-clone..."
+          sleep 3
+        done
+        echo "[bootstrap.sh] MySQL redémarré après clone."
+      fi
+
+      echo "[bootstrap.sh] Rejoindre le groupe MGR..."
+      ${MYSQL} -e "START GROUP_REPLICATION;"
+      echo "[bootstrap.sh] ${POD_NAME} a rejoint le groupe MGR."
+    fi
+
+    echo "[bootstrap.sh] Terminé pour ${POD_NAME}."
+
+  # ============================================================
+  # SCRIPT 3 : mgr-monitor.sh
+  # Exécuté par le SIDECAR mgr-monitor dans chaque pod MySQL.
+  #
+  # Ce script tourne en boucle infinie et :
+  #   - Interroge performance_schema pour connaître son rôle MGR
+  #   - Écrit le rôle (PRIMARY / SECONDARY / UNKNOWN) dans /mgr-status/role
+  #   - Ce fichier est lu par le configurateur ProxySQL
+  # ============================================================
+  mgr-monitor.sh: |
+    #!/bin/bash
+
+    echo "=== [mgr-monitor.sh] Démarrage sidecar monitor ==="
+
+    POD_NAME="${POD_NAME}"
+    ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD}"
+    STATUS_FILE="/mgr-status/role"
+    MYSQL="mysql -uroot -p${ROOT_PASSWORD} -h127.0.0.1 --connect-timeout=5 -sN"
+
+    # Attente initiale — laisser mysqld démarrer
+    sleep 30
+
+    while true; do
+      ROLE=$(${MYSQL} -e "
+        SELECT MEMBER_ROLE
+        FROM performance_schema.replication_group_members
+        WHERE MEMBER_HOST LIKE '$(hostname)%'
+          AND MEMBER_STATE = 'ONLINE'
+        LIMIT 1;
+      " 2>/dev/null || echo "UNKNOWN")
+
+      # Nettoyer les espaces éventuels
+      ROLE=$(echo "${ROLE}" | tr -d '[:space:]')
+      [ -z "${ROLE}" ] && ROLE="UNKNOWN"
+
+      echo "${ROLE}" > "${STATUS_FILE}"
+      echo "[mgr-monitor.sh] ${POD_NAME} → rôle: ${ROLE}"
+
+      sleep 10
+    done
