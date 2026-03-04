@@ -67,8 +67,8 @@ common_setup() {
 
     # ── Étape 1 : Mise à jour du système ─────────────────────────────────────
     log_section "Étape 1/6 [COMMUN] Mise à jour du système"
-    apt-get update -qq
-    apt-get upgrade -y -qq
+    apt-get update
+    apt-get upgrade -y
     log_info "Système mis à jour"
 
     # ── Étape 2 : /etc/hosts ─────────────────────────────────────────────────
@@ -118,7 +118,7 @@ EOF
     log_section "Étape 5/6 [COMMUN] Installation de containerd"
     # doc : https://kubernetes.io/docs/setup/production-environment/container-runtimes/#containerd
 
-    apt-get install -y -qq apt-transport-https ca-certificates curl gnupg lsb-release
+    apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
 
     mkdir -p /etc/apt/keyrings
     # Ne re-télécharge la clé que si elle est absente (idempotent)
@@ -131,8 +131,8 @@ EOF
 https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
         > /etc/apt/sources.list.d/docker.list
 
-    apt-get update -qq
-    apt-get install -y -qq containerd.io
+    apt-get update
+    apt-get install -y containerd.io
 
     # Générer la config par défaut puis activer SystemdCgroup
     # CRITIQUE : sans SystemdCgroup=true, kubelet crashe avec systemd comme cgroup driver
@@ -154,7 +154,7 @@ https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
     log_section "Étape 6/6 [COMMUN] Installation de kubeadm, kubelet, kubectl v${K8S_VERSION}"
     # doc : https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 
-    apt-get install -y -qq curl gpg
+    apt-get install -y curl gpg
 
     mkdir -p -m 755 /etc/apt/keyrings
     if [ ! -f /etc/apt/keyrings/kubernetes-apt-keyring.gpg ]; then
@@ -166,8 +166,8 @@ https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
 https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/ /" \
         > /etc/apt/sources.list.d/kubernetes.list
 
-    apt-get update -qq
-    apt-get install -y -qq kubelet kubeadm kubectl
+    apt-get update
+    apt-get install -y kubelet kubeadm kubectl
 
     # Verrouiller les versions : empêche apt upgrade de casser le cluster
     apt-mark hold kubelet kubeadm kubectl
@@ -227,7 +227,7 @@ master_setup() {
     log_section "Étape M3 [MASTER] Autocomplétion kubectl et alias"
 
     # Installation de bash-completion si absent
-    apt-get install -y -qq bash-completion
+    apt-get install -y bash-completion
 
     # Configuration pour root
     cat >> /root/.bashrc <<'BASHRC'
