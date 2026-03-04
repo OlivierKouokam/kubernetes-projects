@@ -1,0 +1,211 @@
+# =============================================================================
+# COUCHE 3 — PROXYSQL : Deployment
+# =============================================================================
+# Le Deployment ProxySQL contient 2 containers dans le même pod :
+#
+#  ┌───────────────────────────────────────────────────────────────┐
+#  │  POD proxysql                                                  │
+#  │                                                                │
+#  │  [container 1]  proxysql                                      │
+#  │    → écoute port 6033 (SQL entrant depuis les apps)           │
+#  │    → écoute port 6032 (admin API — interne seulement)         │
+#  │    → route les requêtes vers le bon hostgroup MySQL           │
+#  │                                                                │
+#  │  [container 2]  proxysql-configurator (sidecar Python)        │
+#  │    → boucle toutes les 15s                                     │
+#  │    → interroge MGR pour connaître la topologie courante       │
+#  │    → met à jour ProxySQL via admin API (127.0.0.1:6032)       │
+#  │                                                                │
+#  │  Les 2 containers partagent le réseau du pod (localhost)      │
+#  │  → le sidecar accède à l'admin ProxySQL via 127.0.0.1:6032   │
+#  └───────────────────────────────────────────────────────────────┘
+#
+# Pourquoi un Deployment et non un StatefulSet ?
+#   ProxySQL est stateless du point de vue applicatif : il ne stocke
+#   pas de données métier. Sa config est régénérée dynamiquement par
+#   le sidecar. Un Deployment avec replicas=1 suffit.
+#   Pour une HA ProxySQL (ProxySQL Cluster), on peut passer à replicas=2
+#   avec un headless service et la configuration de clustering ProxySQL.
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxysql
+  namespace: wordpress
+  labels:
+    app.kubernetes.io/part-of: wordpress-stack
+    app: proxysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxysql
+  # Recréer le pod (pas de rolling update) pour éviter les états intermédiaires
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: proxysql
+    spec:
+      terminationGracePeriodSeconds: 30
+
+      containers:
+
+        # ==============================================================
+        # CONTAINER 1 : ProxySQL
+        # ==============================================================
+        - name: proxysql
+          image: proxysql/proxysql:2.5.5
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: sql
+              containerPort: 6033    # port SQL (remappé vers 3306 par le Service)
+            - name: admin
+              containerPort: 6032    # port admin (interne uniquement)
+
+          env:
+            # Exposé pour que le sidecar puisse lire le mot de passe admin
+            # (pas utilisé directement par ProxySQL qui lit proxysql.cnf)
+            - name: PROXYSQL_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: proxysql-admin-password
+
+          volumeMounts:
+            # Configuration statique initiale (proxysql.cnf)
+            - name: proxysql-config
+              mountPath: /etc/proxysql.cnf
+              subPath: proxysql.cnf
+              readOnly: true
+            # Données ProxySQL (stats, config runtime persistée)
+            - name: proxysql-data
+              mountPath: /var/lib/proxysql
+
+          # ------------------------------------------------------------
+          # LIVENESS PROBE : ProxySQL répond sur le port SQL ?
+          # ------------------------------------------------------------
+          livenessProbe:
+            tcpSocket:
+              port: 6033
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 3
+
+          # ------------------------------------------------------------
+          # READINESS PROBE : ProxySQL peut-il accepter des connexions ?
+          # On vérifie aussi que l'admin est accessible (le sidecar en a besoin)
+          # ------------------------------------------------------------
+          readinessProbe:
+            tcpSocket:
+              port: 6033
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+        # ==============================================================
+        # CONTAINER 2 : Sidecar Configurateur Python
+        # ==============================================================
+        - name: proxysql-configurator
+          image: python:3.11-slim
+          imagePullPolicy: IfNotPresent
+
+          # Installer mysql-client au démarrage puis lancer le script
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[entrypoint] Installation du client MySQL..."
+              apt-get update -qq && \
+              apt-get install -y -qq --no-install-recommends \
+                default-mysql-client 2>/dev/null
+              echo "[entrypoint] Démarrage du configurateur Python..."
+              exec python3 /configurator/configurator.py
+
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+            - name: HEADLESS_SVC
+              value: "mysql-headless"
+
+            # ⚠️  À mettre à jour manuellement si vous scalez le StatefulSet MySQL.
+            # En production, utilisez un Operator ou un CRD pour automatiser ça.
+            - name: REPLICAS
+              value: "3"
+
+            # User MySQL que le configurateur utilise pour interroger MGR
+            - name: PROXYSQL_MYSQL_USER
+              value: "proxysql"
+
+            - name: PROXYSQL_MYSQL_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: proxysql-password
+
+            # Admin ProxySQL — accessible via localhost (même pod)
+            - name: PROXY_ADMIN_HOST
+              value: "127.0.0.1"
+
+            - name: PROXY_ADMIN_PORT
+              value: "6032"
+
+            - name: PROXY_ADMIN_USER
+              value: "admin"
+
+            - name: PROXY_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: proxysql-admin-password
+
+            # Intervalle de synchronisation en secondes
+            - name: SYNC_INTERVAL
+              value: "15"
+
+          volumeMounts:
+            - name: configurator-script
+              mountPath: /configurator
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+
+      # ================================================================
+      # VOLUMES
+      # ================================================================
+      volumes:
+        - name: proxysql-config
+          configMap:
+            name: proxysql-config
+
+        - name: configurator-script
+          configMap:
+            name: proxysql-configurator
+            defaultMode: 0755
+
+        # emptyDir : les données ProxySQL sont régénérées par le sidecar
+        # au démarrage — pas besoin de persistence pour ce composant
+        - name: proxysql-data
+          emptyDir: {}
