@@ -127,6 +127,8 @@ spec:
             # Volume partagé avec le container mysql : contient mgr.cnf généré
             - name: mysql-conf-dir
               mountPath: /etc/mysql/conf.d
+            - name: mysql-logs
+              mountPath: /var/log/mysql  
           resources:
             requests:
               cpu: 50m
@@ -175,6 +177,8 @@ spec:
             # Volume partagé pour exposer le rôle MGR au configurateur ProxySQL
             - name: mgr-status
               mountPath: /mgr-status
+            - name: mysql-logs           
+              mountPath: /var/log/mysql
 
           # --------------------------------------------------------------
           # STARTUP PROBE
@@ -361,6 +365,9 @@ spec:
         # Rôle MGR courant — écrit par mgr-monitor, lu par ProxySQL configurator
         - name: mgr-status
           emptyDir: {}
+        # Définition du volume temporaire
+        - name: mysql-logs                    
+          emptyDir: {}          
 
   # ================================================================
   # VOLUME CLAIM TEMPLATES
