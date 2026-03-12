@@ -127,13 +127,13 @@ vagrant plugin install vagrant-vbguest
 vagrant suspend
 
 # Prendre un snapshot
-vagrant snapshot save <vm_name> <snapshot_name>
+vagrant snapshot save <snapshot_name>
 
 # lister les snapshots
 vagrant snapshot list
 
 # Restorer un snapshot
-vagrant snapshot restore <vm_name> <snapshot_name>
+vagrant snapshot restore <snapshot_name>
 
 # Relancer les VMs
 vagrant resume
