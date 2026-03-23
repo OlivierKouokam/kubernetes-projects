@@ -1,0 +1,19 @@
+apiVersion: databases.spotahome.com/v1
+kind: RedisFailover
+metadata:
+  name: wp-redis
+spec:
+  sentinel:
+    replicas: 3 # 3 Sentinels pour le quorum
+  redis:
+    replicas: 3 # 1 Master + 2 Slaves
+    storage:
+      persistentVolumeClaim:
+        metadata:
+          name: redis-data
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
