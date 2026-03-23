@@ -1,0 +1,25 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: wp-db
+spec:
+  crVersion: 1.13.0
+  secretsName: my-db-secrets
+  pxc:
+    size: 3 # Nombre de réplicas pour le quorum
+    image: percona/percona-xtradb-cluster:8.0.32
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 10Gi
+    affinity: # Pour s'assurer que les DB ne sont pas sur le même serveur physique
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: wp-db
+          topologyKey: "kubernetes.io/hostname"
+  haproxy: # Gère l'équilibrage de charge devant les DB
+    enabled: true
+    size: 3
