@@ -1,5 +1,18 @@
 MySQL HA avec Percona Operator
 
+kubectl create secret generic my-db-secrets \
+--from-file=password=./my-db-secrets.txt
+        OU BIEN
+kubectl create secret generic my-db-secrets \
+  --from-literal=root=MonMotDePasseRoot \
+  --from-literal=xtrabackup=BackupPass123 \
+  --from-literal=monitor=MonitorPass123 \
+  --from-literal=clustercheck=CheckPass123 \
+  --from-literal=users=wp_user:wp_password
+
+kubectl create secret generic redis-password \
+  --from-file=password=./redis-secrets.txt
+
 Déploiement via Helm (La méthode standard)
 Pour installer l'opérateur Percona (le plus robuste pour MySQL HA) :
 
