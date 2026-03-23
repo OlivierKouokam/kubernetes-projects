@@ -37,6 +37,11 @@ kubectl apply -f redis-ha.yaml
 
 Partie C: Redis en mode Sentinel (HA)
 
+helm repo add redis-operator https://spotahome.github.io/redis-operator
+helm install redis-operator redis-operator/redis-operator
+
+Partie D: Minio
+
 helm repo add minio https://charts.min.io/
 helm install minio-ha minio/minio \
   --set mode=distributed \
@@ -44,3 +49,13 @@ helm install minio-ha minio/minio \
   --set rootUser=admin \
   --set rootPassword=MotDePasseAdminMinio \
   --set persistence.size=10Gi
+
+Comment lier WordPress à MinIO ?
+Une fois WordPress lancé, il te faudra installer un plugin (le standard est "S3 Uploads" ou "WP Offload Media").
+
+La configuration dans l'interface WordPress :
+
+Access Key : admin
+Secret Key : MotDePasseAdminMinio
+Bucket : wp-uploads
+Endpoint : http://minio-ha:9000 (l'adresse interne de ton service MinIO).
