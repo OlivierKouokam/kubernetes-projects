@@ -10,9 +10,6 @@ kubectl create secret generic my-db-secrets \
   --from-literal=clustercheck=CheckPass123 \
   --from-literal=users=wp_user:wp_password
 
-kubectl create secret generic redis-password \
-  --from-file=password=./redis-secrets.txt
-
 Déploiement via Helm (La méthode standard)
 Pour installer l'opérateur Percona (le plus robuste pour MySQL HA) :
 
@@ -29,7 +26,21 @@ kubectl apply -f mysql-ha.yaml
 
 Partie B: Redis en mode Sentinel (HA)
 
+kubectl create secret generic redis-password \
+  --from-file=password=./redis-secrets.txt
+
 helm repo add redis-operator https://spotahome.github.io/redis-operator
 helm install redis-operator redis-operator/redis-operator
 
 kubectl apply -f redis-ha.yaml
+
+
+Partie C: Redis en mode Sentinel (HA)
+
+helm repo add minio https://charts.min.io/
+helm install minio-ha minio/minio \
+  --set mode=distributed \
+  --set replicas=4 \
+  --set rootUser=admin \
+  --set rootPassword=MotDePasseAdminMinio \
+  --set persistence.size=10Gi
