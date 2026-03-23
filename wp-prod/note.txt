@@ -1,0 +1,46 @@
+MySQL HA avec Percona Operator
+
+Déploiement via Helm (La méthode standard)
+Pour installer l'opérateur Percona (le plus robuste pour MySQL HA) :
+
+Installer l'opérateur :
+
+Bash
+helm repo add percona https://percona.github.io/percona-helm-charts/
+helm install my-db-operator percona/percona-xtradb-cluster-operator
+Créer ton Cluster HA (Custom Resource) :
+Voici à quoi ressemble ton fichier mysql-ha.yaml. C'est ici que la magie opère :
+
+YAML
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: wp-db
+spec:
+  crVersion: 1.13.0
+  secretsName: my-db-secrets
+  pxc:
+    size: 3 # Nombre de réplicas pour le quorum
+    image: percona/percona-xtradb-cluster:8.0.32
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 10Gi
+    affinity: # Pour s'assurer que les DB ne sont pas sur le même serveur physique
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: wp-db
+          topologyKey: "kubernetes.io/hostname"
+  haproxy: # Gère l'équilibrage de charge devant les DB
+    enabled: true
+    size: 3
+
+Pourquoi cette configuration est "Production-Like" ?
+Anti-Affinity : Si un serveur physique tombe, les deux autres réplicas sont sur d'autres serveurs, donc ta DB reste en ligne.
+
+HAProxy : Il offre un point d'entrée unique. WordPress ne voit qu'une seule adresse IP, et HAProxy redirige les écritures vers le Maître actuel.
+
+Auto-Guérison : Si un pod est corrompu, l'opérateur le recrée et resynchronise les données automatiquement.
