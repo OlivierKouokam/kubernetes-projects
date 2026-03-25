@@ -1,0 +1,100 @@
+# =============================================================
+# Job — Initialisation MinIO post-Tenant
+#
+# Ce Job s'exécute APRÈS que le Tenant MinIO soit Ready.
+# Il utilise mc (MinIO Client) pour :
+#   1. Créer / vérifier le bucket wp-uploads
+#   2. Configurer la politique de lecture publique
+#      (les images WordPress doivent être accessibles publiquement)
+#   3. Créer l'utilisateur WordPress (wp-minio-user)
+#   4. Attacher la politique IAM restrictive à cet utilisateur
+#
+# Usage :
+#   kubectl apply -f minio-init-job.yaml
+#   kubectl logs -n wordpress-ha job/minio-init -f
+# =============================================================
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-init
+  namespace: wordpress-ha
+  labels:
+    app.kubernetes.io/part-of: wordpress-ha-stack
+    app.kubernetes.io/component: minio-init
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: minio-init
+    spec:
+      restartPolicy: OnFailure
+
+      # Init container : attendre que l'API MinIO réponde
+      initContainers:
+        - name: wait-for-minio
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Attente de l'API MinIO (minio-tenant-hl:9000)..."
+              until nc -z minio-tenant-hl 9000; do
+                echo "MinIO API pas encore disponible — attente 5s..."
+                sleep 5
+              done
+              echo "MinIO API disponible !"
+              # Attente supplémentaire pour que tous les pods soient ONLINE
+              # et que le quorum d'erasure coding soit établi
+              sleep 15
+              echo "Démarrage de la configuration..."
+
+      containers:
+        - name: minio-init
+          # Image officielle MinIO Client (mc)
+          image: minio/mc:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - /config/init-minio.sh
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-root-credentials
+                  key: accesskey
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-root-credentials
+                  key: secretkey
+            - name: WP_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-wp-credentials
+                  key: accesskey
+            - name: WP_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-wp-credentials
+                  key: secretkey
+
+          volumeMounts:
+            - name: config
+              mountPath: /config
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+      volumes:
+        - name: config
+          configMap:
+            name: minio-wp-policy
+            defaultMode: 0755

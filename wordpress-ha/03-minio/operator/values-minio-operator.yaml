@@ -1,0 +1,35 @@
+# =============================================================
+# MinIO Operator
+# Helm chart : operator
+# Repo       : https://operator.min.io/
+#
+# L'opérateur tourne dans son propre namespace (minio-operator)
+# et gère les CRDs Tenant dans toutes les namespaces.
+# =============================================================
+
+operator:
+  replicaCount: 1
+  image:
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Console MinIO Operator (UI de gestion des Tenants)
+console:
+  enabled: true
+  replicaCount: 1
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

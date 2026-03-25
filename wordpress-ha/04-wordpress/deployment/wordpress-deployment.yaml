@@ -1,0 +1,389 @@
+# =============================================================
+# WordPress Deployment — Mode HA Stateless
+#
+# Architecture :
+#   - Image officielle wordpress:6.7-php8.3-apache
+#   - Stateless : pas de PVC pour wp-content/uploads
+#     (les médias vont directement sur MinIO via WP Offload Media)
+#   - wp-config.php injecté via ConfigMap (volume)
+#   - Credentials injectés via Secret (env vars)
+#   - Init containers : attente MySQL + Redis + MinIO avant démarrage
+#   - Readiness probe : vérifie que WordPress répond à /wp-login.php
+#   - Liveness probe : vérifie que Apache est vivant
+#
+# Plugins pré-installés via initContainer "install-plugins" :
+#   - Redis Object Cache (till-kruss) → cache Sentinel
+#   - WP Offload Media Lite (deliciousbrains) → médias MinIO
+#
+# NodePort 30080 pour tests
+# =============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  namespace: wordpress-ha
+  labels:
+    app: wordpress
+    app.kubernetes.io/part-of: wordpress-ha-stack
+    app.kubernetes.io/component: wordpress
+spec:
+  # Démarrer avec 2 replicas — scalable via HPA
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wordpress
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0       # Zéro downtime lors des mises à jour
+
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        app.kubernetes.io/component: wordpress
+      annotations:
+        # Forcer le redéploiement si le ConfigMap change
+        checksum/config: "{{ .ConfigMap.wordpress-config }}"
+
+    spec:
+
+      # ── Init Containers ──────────────────────────────────────
+      # Ordre : MySQL → Redis → MinIO → plugins → WordPress
+      initContainers:
+
+        # 1. Attendre MySQL (MySQLRouter)
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Attente MySQL (mycluster-router-service:3306)..."
+              until nc -z mycluster-router-service 3306; do
+                echo "  MySQL non disponible — retry dans 5s..."
+                sleep 5
+              done
+              echo "✓ MySQL disponible"
+
+        # 2. Attendre Redis Sentinel
+        - name: wait-for-redis
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Attente Redis Sentinel (redis-sentinel-service:26379)..."
+              until nc -z redis-sentinel-service 26379; do
+                echo "  Redis Sentinel non disponible — retry dans 5s..."
+                sleep 5
+              done
+              echo "✓ Redis Sentinel disponible"
+
+        # 3. Attendre MinIO API
+        - name: wait-for-minio
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Attente MinIO API (minio-tenant-hl:9000)..."
+              until nc -z minio-tenant-hl 9000; do
+                echo "  MinIO non disponible — retry dans 5s..."
+                sleep 5
+              done
+              echo "✓ MinIO disponible"
+
+        # 4. Installer les plugins WordPress via WP-CLI
+        # Les plugins sont installés dans un volume partagé
+        # monté sur /var/www/html/wp-content/plugins
+        - name: install-plugins
+          image: wordpress:cli-php8.3
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Installation des plugins WordPress..."
+
+              # Répertoire plugins dans le volume partagé
+              PLUGIN_DIR="/var/www/html/wp-content/plugins"
+              mkdir -p "${PLUGIN_DIR}"
+
+              # Plugin 1 : Redis Object Cache (Till Krüss)
+              # Supporte nativement le mode Sentinel via predis
+              if [ ! -d "${PLUGIN_DIR}/redis-cache" ]; then
+                echo "Installation de redis-cache..."
+                wp plugin install redis-cache \
+                  --path=/var/www/html \
+                  --allow-root \
+                  --quiet
+                echo "✓ redis-cache installé"
+              else
+                echo "✓ redis-cache déjà présent"
+              fi
+
+              # Plugin 2 : WP Offload Media Lite (Delicious Brains)
+              # Déporte les uploads vers MinIO (API S3 compatible)
+              if [ ! -d "${PLUGIN_DIR}/amazon-s3-and-cloudfront" ]; then
+                echo "Installation de WP Offload Media Lite..."
+                wp plugin install amazon-s3-and-cloudfront \
+                  --path=/var/www/html \
+                  --allow-root \
+                  --quiet
+                echo "✓ amazon-s3-and-cloudfront installé"
+              else
+                echo "✓ amazon-s3-and-cloudfront déjà présent"
+              fi
+
+              echo "✓ Plugins installés avec succès"
+              ls -la "${PLUGIN_DIR}/"
+
+          env:
+            - name: WORDPRESS_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-host
+            - name: WORDPRESS_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-user
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-password
+            - name: WORDPRESS_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-name
+
+          volumeMounts:
+            - name: wordpress-plugins
+              mountPath: /var/www/html/wp-content/plugins
+            - name: wp-config
+              mountPath: /var/www/html/wp-config.php
+              subPath: wp-config.php
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+      # ── Main Container ────────────────────────────────────────
+      containers:
+        - name: wordpress
+          image: wordpress:6.7-php8.3-apache
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 80
+              name: http
+
+          # ── Variables d'environnement ───────────────────────
+          env:
+            # MySQL
+            - name: WORDPRESS_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-host
+            - name: WORDPRESS_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-user
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-password
+            - name: WORDPRESS_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-name
+
+            # Redis
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: redis-password
+
+            # MinIO
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: minio-access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: minio-secret-key
+
+            # WordPress Auth Salts
+            - name: WP_AUTH_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: auth-key
+            - name: WP_SECURE_AUTH_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: secure-auth-key
+            - name: WP_LOGGED_IN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: logged-in-key
+            - name: WP_NONCE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: nonce-key
+            - name: WP_AUTH_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: auth-salt
+            - name: WP_SECURE_AUTH_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: secure-auth-salt
+            - name: WP_LOGGED_IN_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: logged-in-salt
+            - name: WP_NONCE_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: nonce-salt
+
+            # IP du nœud K8s pour WP_HOME/WP_SITEURL
+            # Injecté dynamiquement via fieldRef
+            - name: K8S_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+
+            # PHP settings (overrides php.ini)
+            - name: PHP_MEMORY_LIMIT
+              value: "256M"
+            - name: PHP_MAX_EXECUTION_TIME
+              value: "300"
+            - name: PHP_UPLOAD_MAX_FILESIZE
+              value: "64M"
+            - name: PHP_POST_MAX_SIZE
+              value: "64M"
+
+          # ── Volumes montés ───────────────────────────────────
+          volumeMounts:
+            # wp-config.php depuis ConfigMap
+            - name: wp-config
+              mountPath: /var/www/html/wp-config.php
+              subPath: wp-config.php
+              readOnly: true
+
+            # Plugins installés par le init container
+            - name: wordpress-plugins
+              mountPath: /var/www/html/wp-content/plugins
+
+            # wp-content/uploads (temporaire — MinIO prend le relais via plugin)
+            # ReadWriteOnce suffit ici : les fichiers sont immédiatement
+            # offloadés vers MinIO par WP Offload Media
+            - name: wordpress-uploads-tmp
+              mountPath: /var/www/html/wp-content/uploads
+
+          # ── Probes ───────────────────────────────────────────
+          readinessProbe:
+            httpGet:
+              path: /wp-login.php
+              port: 80
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+            successThreshold: 1
+
+          livenessProbe:
+            httpGet:
+              path: /wp-login.php
+              port: 80
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
+
+          startupProbe:
+            httpGet:
+              path: /wp-login.php
+              port: 80
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 30    # 5 min max pour le démarrage initial
+
+          # ── Ressources ───────────────────────────────────────
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+
+      # ── Volumes ───────────────────────────────────────────────
+      volumes:
+        # wp-config.php depuis ConfigMap
+        - name: wp-config
+          configMap:
+            name: wordpress-config
+            items:
+              - key: wp-config.php
+                path: wp-config.php
+
+        # Volume partagé pour les plugins (init container → main container)
+        # emptyDir : éphémère, recréé à chaque redémarrage du pod
+        # → les plugins sont réinstallés par le init container à chaque boot
+        - name: wordpress-plugins
+          emptyDir: {}
+
+        # Volume temporaire pour les uploads
+        # (les médias sont offloadés vers MinIO immédiatement)
+        - name: wordpress-uploads-tmp
+          emptyDir: {}
+
+      # ── Scheduling ────────────────────────────────────────────
+      # Spread les pods WordPress sur différents nœuds
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: wordpress
+                topologyKey: kubernetes.io/hostname
+
+      # Tolérance d'arrêt gracieux (laisser le temps aux requêtes en cours)
+      terminationGracePeriodSeconds: 30

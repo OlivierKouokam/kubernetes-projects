@@ -1,0 +1,35 @@
+# =============================================================
+# Redis Operator — OT-SCNG (Opstree)
+# Helm chart : redis-operator
+# Repo       : https://ot-container-kit.github.io/helm-charts/
+# Doc        : https://ot-scng-redis-operator.netlify.app/
+#
+# L'opérateur tourne dans son propre namespace (redis-operator)
+# et surveille les CRDs Redis dans toutes les namespaces.
+# =============================================================
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/ot-container-kit/redis-operator/redis-operator
+  pullPolicy: IfNotPresent
+
+# RBAC cluster-wide nécessaire pour surveiller les CRDs Redis
+# dans toutes les namespaces
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Webhook de validation (optionnel — désactivé pour simplifier le lab)
+webhook:
+  enabled: false

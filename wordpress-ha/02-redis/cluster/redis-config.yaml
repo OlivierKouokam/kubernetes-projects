@@ -1,0 +1,61 @@
+# =============================================================
+# ConfigMap — Configuration Redis (tuning)
+#
+# Paramètres optimisés pour un usage WordPress object cache.
+# Monté dans les pods Redis par l'opérateur via l'annotation
+# redis.opstreelabs.in/redis-config: "redis-config"
+# =============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: wordpress-ha
+  labels:
+    app.kubernetes.io/part-of: wordpress-ha-stack
+    app.kubernetes.io/component: redis
+data:
+  redis.conf: |
+    # ── Mémoire ───────────────────────────────────────────────
+    # 200Mi max — ajuster selon les ressources disponibles sur les nœuds
+    maxmemory 200mb
+
+    # Politique d'éviction : supprime les clés les moins utilisées récemment
+    # Idéal pour un cache WordPress (on préfère perdre les entrées old plutôt
+    # que de bloquer les écritures)
+    maxmemory-policy allkeys-lru
+
+    # ── Persistance ───────────────────────────────────────────
+    # RDB snapshot : sauvegarde si N clés changent en M secondes
+    save 900 1      # 1 changement en 15 min
+    save 300 10     # 10 changements en 5 min
+    save 60 1000    # 1000 changements en 1 min
+
+    # AOF désactivé pour le cache (performance > durabilité ici)
+    appendonly no
+
+    # ── Réseau ────────────────────────────────────────────────
+    # Timeout client inactif (0 = jamais, mais WordPress garde des connexions)
+    timeout 300
+
+    # TCP keepalive
+    tcp-keepalive 60
+
+    # ── Sécurité ──────────────────────────────────────────────
+    # Mode protégé — Redis n'accepte pas les connexions sans auth
+    # depuis l'extérieur (le mot de passe est dans le Secret)
+    protected-mode yes
+
+    # ── Performance ───────────────────────────────────────────
+    # Nombre de bases de données (WordPress en utilise 1 par défaut)
+    databases 16
+
+    # Lazy freeing — libère la mémoire de façon asynchrone
+    lazyfree-lazy-eviction yes
+    lazyfree-lazy-expire yes
+    lazyfree-lazy-server-del yes
+    lazyfree-lazy-user-del yes
+
+    # ── Logs ──────────────────────────────────────────────────
+    # notice = avertissements importants seulement (pas trop verbeux)
+    loglevel notice

@@ -1,0 +1,210 @@
+# =============================================================
+# Job — Configuration post-installation WordPress
+#
+# Ce Job utilise WP-CLI pour :
+#   1. Finaliser l'installation WordPress (si pas encore faite)
+#   2. Activer le plugin Redis Object Cache
+#   3. Activer le cache Redis (wp redis enable)
+#   4. Activer WP Offload Media Lite
+#   5. Vérifier le statut des deux plugins
+#
+# À lancer APRÈS que le Deployment WordPress soit Ready :
+#   kubectl wait --for=condition=available deployment/wordpress \
+#     -n wordpress-ha --timeout=10m
+#   kubectl apply -f wordpress-postconfigure-job.yaml
+#
+# Logs :
+#   kubectl logs -n wordpress-ha job/wordpress-postconfigure -f
+# =============================================================
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wordpress-postconfigure
+  namespace: wordpress-ha
+  labels:
+    app.kubernetes.io/part-of: wordpress-ha-stack
+    app.kubernetes.io/component: wordpress-init
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: wordpress-postconfigure
+    spec:
+      restartPolicy: OnFailure
+
+      initContainers:
+        # Attendre que WordPress réponde avant de lancer WP-CLI
+        - name: wait-for-wordpress
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Attente de WordPress (wordpress-service:80)..."
+              until nc -z wordpress-service 80; do
+                echo "  WordPress non disponible — retry 5s..."
+                sleep 5
+              done
+              # Attente supplémentaire pour l'install initiale
+              sleep 15
+              echo "✓ WordPress disponible"
+
+      containers:
+        - name: wp-cli
+          image: wordpress:cli-php8.3
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              WP="wp --path=/var/www/html --allow-root"
+
+              echo "=== Configuration WordPress post-installation ==="
+              echo ""
+
+              # ── 1. Vérifier si WordPress est installé ──────────
+              echo "1. Vérification de l'installation WordPress..."
+              if ! $WP core is-installed 2>/dev/null; then
+                echo "   WordPress pas encore installé — lancement de l'install..."
+                $WP core install \
+                  --url="http://${K8S_NODE_IP}:30080" \
+                  --title="WordPress HA Cluster" \
+                  --admin_user="admin" \
+                  --admin_password="${WP_ADMIN_PASSWORD}" \
+                  --admin_email="admin@wordpress-ha.local" \
+                  --skip-email
+                echo "   ✓ WordPress installé"
+              else
+                echo "   ✓ WordPress déjà installé"
+              fi
+
+              # ── 2. Activer Redis Object Cache ──────────────────
+              echo ""
+              echo "2. Activation du plugin Redis Object Cache..."
+              $WP plugin activate redis-cache || true
+
+              echo "   Activation du cache Redis (génère object-cache.php)..."
+              $WP redis enable || true
+
+              REDIS_STATUS=$($WP redis status 2>/dev/null || echo "unknown")
+              echo "   Statut Redis : ${REDIS_STATUS}"
+
+              # ── 3. Activer WP Offload Media Lite ──────────────
+              echo ""
+              echo "3. Activation de WP Offload Media Lite..."
+              $WP plugin activate amazon-s3-and-cloudfront || true
+              echo "   ✓ WP Offload Media Lite activé"
+
+              # ── 4. Configurer les permaliens ───────────────────
+              echo ""
+              echo "4. Configuration des permaliens (/%postname%/)..."
+              $WP rewrite structure '/%postname%/' --hard || true
+              $WP rewrite flush --hard || true
+              echo "   ✓ Permaliens configurés"
+
+              # ── 5. Désactiver les plugins inutiles ─────────────
+              echo ""
+              echo "5. Nettoyage des plugins par défaut..."
+              $WP plugin deactivate hello akismet 2>/dev/null || true
+              echo "   ✓ Plugins par défaut désactivés"
+
+              # ── 6. Rapport final ───────────────────────────────
+              echo ""
+              echo "=== Rapport final ==="
+              echo ""
+              echo "Plugins actifs :"
+              $WP plugin list --status=active --fields=name,version 2>/dev/null || true
+
+              echo ""
+              echo "Statut Redis Object Cache :"
+              $WP redis status 2>/dev/null || echo "  (vérifier manuellement)"
+
+              echo ""
+              echo "Infos site :"
+              $WP option get siteurl 2>/dev/null || true
+              $WP option get blogname 2>/dev/null || true
+
+              echo ""
+              echo "✓ Configuration WordPress terminée !"
+              echo ""
+              echo "━━━ Accès WordPress ━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "  Frontend : http://${K8S_NODE_IP}:30080"
+              echo "  Admin    : http://${K8S_NODE_IP}:30080/wp-admin"
+              echo "  Login    : admin / ${WP_ADMIN_PASSWORD}"
+              echo ""
+              echo "━━━ Vérifications manuelles dans wp-admin ━━━━━━━━"
+              echo "  Redis  : Réglages > Redis Object Cache > Activer"
+              echo "  MinIO  : Media > Offload Media > Configurer bucket"
+
+          env:
+            - name: WORDPRESS_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-host
+            - name: WORDPRESS_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-user
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-password
+            - name: WORDPRESS_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: db-name
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: redis-password
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: minio-access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secrets
+                  key: minio-secret-key
+            - name: K8S_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: WP_ADMIN_PASSWORD
+              value: "WPadmin!2024"    # À changer impérativement
+
+          volumeMounts:
+            - name: wp-config
+              mountPath: /var/www/html/wp-config.php
+              subPath: wp-config.php
+            - name: wordpress-content
+              mountPath: /var/www/html/wp-content
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+      volumes:
+        - name: wp-config
+          configMap:
+            name: wordpress-config
+            items:
+              - key: wp-config.php
+                path: wp-config.php
+        # Accéder au wp-content du pod WordPress en cours
+        # via un Service (WP-CLI doit pointer sur le même wordpress)
+        - name: wordpress-content
+          emptyDir: {}

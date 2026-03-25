@@ -1,0 +1,63 @@
+# =============================================================
+# Services NodePort — Accès externe MinIO pour tests
+#
+# ⚠️  USAGE TEST UNIQUEMENT
+#
+# Port 30900 → API S3 MinIO  (9000) — mc, aws cli, plugin WP
+# Port 30901 → Console MinIO (9090) — UI web de gestion
+#
+# Accès console :
+#   http://<NODE_IP>:30901
+#   Login : minio / MinIOr00t!2024
+#
+# Test API S3 avec mc (MinIO Client) :
+#   mc alias set wplab http://<NODE_IP>:30900 minio MinIOr00t!2024
+#   mc ls wplab/
+#   mc ls wplab/wp-uploads/
+# =============================================================
+
+---
+# NodePort API S3
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-api-nodeport-test
+  namespace: wordpress-ha
+  labels:
+    app.kubernetes.io/part-of: wordpress-ha-stack
+    app.kubernetes.io/component: minio-test
+  annotations:
+    description: "NodePort API S3 — test uniquement"
+spec:
+  type: NodePort
+  selector:
+    v1.min.io/tenant: minio-tenant
+  ports:
+    - name: s3-api
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+      nodePort: 30900
+
+---
+# NodePort Console MinIO
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-console-nodeport-test
+  namespace: wordpress-ha
+  labels:
+    app.kubernetes.io/part-of: wordpress-ha-stack
+    app.kubernetes.io/component: minio-test
+  annotations:
+    description: "NodePort Console MinIO — test uniquement"
+spec:
+  type: NodePort
+  selector:
+    v1.min.io/tenant: minio-tenant
+  ports:
+    - name: console
+      protocol: TCP
+      port: 9090
+      targetPort: 9090
+      nodePort: 30901

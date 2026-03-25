@@ -1,0 +1,27 @@
+# =============================================================
+# PodDisruptionBudget — WordPress
+#
+# Garantit qu'au moins 1 pod WordPress reste disponible
+# lors des opérations de maintenance planifiées :
+#   - kubectl drain (vidage d'un nœud)
+#   - Rolling updates du Deployment
+#   - Evictions par le scheduler
+#
+# minAvailable: 1 → au moins 1 pod toujours en service
+# (avec 2 replicas min, on peut donc drainer un nœud
+#  sans interruption de service)
+# =============================================================
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wordpress-pdb
+  namespace: wordpress-ha
+  labels:
+    app: wordpress
+    app.kubernetes.io/part-of: wordpress-ha-stack
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: wordpress
