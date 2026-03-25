@@ -48,8 +48,7 @@ initDB:
 # ── Stockage ─────────────────────────────────────────────────
 datadirVolumeClaimTemplate:
   storageClassName: example-nfs   # StorageClass NFS présente dans le cluster
-  accessModes:
-    - ReadWriteOnce
+  accessModes: "ReadWriteOnce"
   resources:
     requests:
       storage: 5Gi                # 5Gi par instance MySQL (×3 = 15Gi total)
@@ -100,14 +99,38 @@ backupProfiles: []
 backupSchedules: []
 
 # ── Logs ─────────────────────────────────────────────────────
-logs:
-  error:
-    collect: true
-  general:
-    collect: false      # Trop verbeux pour un lab
-  slowQuery:
-    collect: true
-    longQueryTime: 2    # Requêtes > 2s loggées
+logs: {}
+#logs:
+#  collector:
+#    image: container-registry.oracle.com/mysql/community-operator:9.1.0
+#    fluentd:
+#      errorLog:
+#        options:
+#          tag: mysql.error
+#      generalLog:
+#        options:
+#          tag: mysql.general
+#      slowQueryLog:
+#        options:
+#          tag: mysql.slowquery
+#      sinks:
+#        - name: forward-to-loki
+#          rawConfig: |
+#            <match mysql.**>
+#              @type forward
+#              <server>
+#                host loki.monitoring.svc.cluster.local
+#                port 24224
+#              </server>
+#            </match>
+#  error:
+#    collect: false
+#  general:
+#    collect: false      # Trop verbeux pour un lab
+#  slowQuery:
+#    enabled: false
+#    collect: false
+#    longQueryTime: 2    # Requêtes > 2s loggées
 
 # ── Affinité & Tolérances ────────────────────────────────────
 # Spread les pods MySQL sur des nœuds différents si possible
