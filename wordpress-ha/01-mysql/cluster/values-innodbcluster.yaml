@@ -17,12 +17,13 @@
 credentials:
   root:
     user: root
-    password: ""          # Ignoré — géré par le Secret existant
+    #password: ""          # Ignoré — géré par le Secret existant
+    password: " WPr00tS3cur3!2024"
     host: "%"
 
 # Le Secret doit exister AVANT le helm install
 # Nom du secret Kubernetes contenant rootPassword
-existingSecret: mysql-credentials
+# existingSecret: mysql-credentials --> pas reconnue par le chart et ne fait rien
 
 # ── Image MySQL ──────────────────────────────────────────────
 image:
