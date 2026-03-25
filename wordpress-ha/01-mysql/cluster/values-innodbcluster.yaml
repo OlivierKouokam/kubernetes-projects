@@ -48,7 +48,8 @@ initDB:
 # ── Stockage ─────────────────────────────────────────────────
 datadirVolumeClaimTemplate:
   storageClassName: example-nfs   # StorageClass NFS présente dans le cluster
-  accessModes: "ReadWriteOnce"
+  accessModes:
+    - "ReadWriteOnce"
   resources:
     requests:
       storage: 5Gi                # 5Gi par instance MySQL (×3 = 15Gi total)
