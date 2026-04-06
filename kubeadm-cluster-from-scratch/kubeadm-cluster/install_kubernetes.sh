@@ -513,7 +513,7 @@ BASHRC
 #         -o jsonpath="{.data.token}" | base64 --decode
 #     echo ""
 #     echo "──────────────────────────────────────────────────"
-# }
+}
 
 # =============================================================================
 #  PARTIE WORKER — exécutée UNIQUEMENT sur les nœuds worker
