@@ -336,9 +336,10 @@ sudo kubeadm init \
 ### 5.3 Configuration de kubectl pour l'utilisateur courant
 
 ```bash
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
+sudo mkdir -p /root/.kube
+sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
+#sudo chown $(id -u):$(id -g) $HOME/.kube/config
+sudo chown root:root /root/.kube/config
 
 # Vérification : le master apparaît en "NotReady" (normal, le CNI n'est pas encore installé)
 kubectl get nodes
