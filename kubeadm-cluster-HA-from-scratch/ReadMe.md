@@ -38,7 +38,7 @@
    ┌─────────────────┐                   ┌─────────────────┐
    │    worker-1      │                   │    worker-2      │
    │  192.168.1.20    │                   │  192.168.1.21    │
-   │  2 Go RAM        │                   │  2 Go RAM        │
+   │  3 Go RAM        │                   │  3 Go RAM        │
    │  ─────────────   │                   │  ─────────────   │
    │  kubelet         │                   │  kubelet         │
    │  containerd      │                   │  containerd      │
@@ -76,11 +76,11 @@ Oui, avec des nuances :
 
 | Rôle     | Hostname | IP           | RAM  | CPU |
 |----------|----------|--------------|------|-----|
-| Master 1 | master-1 | 192.168.1.10 | 4 Go | 2   |
-| Master 2 | master-2 | 192.168.1.11 | 4 Go | 2   |
-| Master 3 | master-3 | 192.168.1.12 | 4 Go | 2   |
-| Worker 1 | worker-1 | 192.168.1.20 | 2 Go | 2   |
-| Worker 2 | worker-2 | 192.168.1.21 | 2 Go | 2   |
+| Master 1 | master-1 | 192.168.1.10 | 4 Go | 1   |
+| Master 2 | master-2 | 192.168.1.11 | 4 Go | 1   |
+| Master 3 | master-3 | 192.168.1.12 | 4 Go | 1   |
+| Worker 1 | worker-1 | 192.168.1.20 | 3 Go | 1   |
+| Worker 2 | worker-2 | 192.168.1.21 | 3 Go | 1   |
 | VIP LB   | —        | 192.168.1.100| —    | —   |
 
 > **OS :** Ubuntu 22.04 LTS  
