@@ -7,7 +7,7 @@
 # ============================================================
 
 # Réseau hôte (host-only)
-NETWORK_PREFIX = "192.168.56"
+NETWORK_PREFIX = "192.168.80"
 VIP            = "#{NETWORK_PREFIX}.100"
 
 NODES = [
