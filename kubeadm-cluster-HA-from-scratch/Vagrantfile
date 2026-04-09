@@ -1,0 +1,72 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# ============================================================
+#  Cluster Kubernetes HA — 3 Masters + 2 Workers
+#  Kubernetes v1.34 | kubeadm | HAProxy + Keepalived | Calico
+# ============================================================
+
+# Réseau hôte (host-only)
+NETWORK_PREFIX = "192.168.56"
+VIP            = "#{NETWORK_PREFIX}.100"
+
+NODES = [
+  # hostname         ip                       ram    cpu   role
+  { name: "master-1", ip: "#{NETWORK_PREFIX}.10", ram: 4096, cpu: 1, role: "master" },
+  { name: "master-2", ip: "#{NETWORK_PREFIX}.11", ram: 4096, cpu: 1, role: "master" },
+  { name: "master-3", ip: "#{NETWORK_PREFIX}.12", ram: 4096, cpu: 1, role: "master" },
+  { name: "worker-1", ip: "#{NETWORK_PREFIX}.20", ram: 3072, cpu: 1, role: "worker" },
+  { name: "worker-2", ip: "#{NETWORK_PREFIX}.21", ram: 3072, cpu: 1, role: "worker" },
+]
+
+# Script commun à tous les nœuds (hosts file + VIP)
+$common_hosts = <<~SHELL
+  echo "--- [hosts] Configuration de /etc/hosts ---"
+  cat >> /etc/hosts <<EOF
+
+  # Cluster Kubernetes HA
+  #{NETWORK_PREFIX}.10   master-1
+  #{NETWORK_PREFIX}.11   master-2
+  #{NETWORK_PREFIX}.12   master-3
+  #{NETWORK_PREFIX}.20   worker-1
+  #{NETWORK_PREFIX}.21   worker-2
+  #{NETWORK_PREFIX}.100  k8s-vip
+  EOF
+  echo "--- [hosts] OK ---"
+SHELL
+
+Vagrant.configure("2") do |config|
+
+  config.vm.box               = "ubuntu/jammy64"
+  config.vm.box_check_update  = false
+
+  NODES.each do |node|
+    config.vm.define node[:name] do |vm|
+
+      vm.vm.hostname = node[:name]
+
+      # Interface NAT par défaut (eth0) + host-only statique (eth1)
+      vm.vm.network "private_network", ip: node[:ip]
+
+      vm.vm.provider "virtualbox" do |vb|
+        vb.name   = "k8s-ha-#{node[:name]}"
+        vb.memory = node[:ram]
+        vb.cpus   = node[:cpu]
+
+        # Désactiver l'audio et l'USB inutiles
+        vb.customize ["modifyvm", :id, "--audio",     "none"]
+        vb.customize ["modifyvm", :id, "--usb",       "off"]
+
+        # Promiscuous mode nécessaire pour que Keepalived VRRP fonctionne
+        # sur l'interface host-only (eth1)
+        vb.customize ["modifyvm", :id,
+                      "--nicpromisc2", "allow-all"]
+      end
+
+      # Provision : /etc/hosts commun
+      vm.vm.provision "shell", inline: $common_hosts
+
+    end
+  end
+
+end
