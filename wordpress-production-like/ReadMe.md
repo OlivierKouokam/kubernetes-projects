@@ -26,35 +26,46 @@
 Chaque VM dispose de **deux disques** : le disque OS géré par la box, et un disque VDI dédié à Longhorn.
 
 ```ruby
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
 Vagrant.configure("2") do |config|
-  [
-    { name: "master",  ip: "192.168.56.10" },
-    { name: "worker1", ip: "192.168.56.11" },
-    { name: "worker2", ip: "192.168.56.12" }
-  ].each do |node|
-    config.vm.define node[:name] do |n|
-      n.vm.box      = "ubuntu/jammy64"
-      n.vm.hostname = node[:name]
-      n.vm.network "private_network", ip: node[:ip]
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_check_update = false
 
-      n.vm.provider "virtualbox" do |vb|
-        vb.name   = node[:name]
-        vb.cpus   = 4
-        vb.memory = 8192
+  # ── Configuration du Controlplane ──────────────────────────────────────────
+  config.vm.define "controlplane" do |cp|
+    cp.vm.hostname = "controlplane"
+    cp.vm.network "private_network", type: "static", ip: "192.168.90.10"
 
-        # Disque dédié Longhorn (50 Go)
-        disk_path = "#{ENV['HOME']}/vbox-disks/#{node[:name]}-longhorn.vdi"
-        unless File.exist?(disk_path)
-          vb.customize ["createhd",
-            "--filename", disk_path,
-            "--size",     51200]
-        end
-        vb.customize ["storageattach", :id,
-          "--storagectl", "SCSI",
-          "--port",        2,
-          "--device",      0,
-          "--type",        "hdd",
-          "--medium",      disk_path]
+    # Un seul disque de 60Go (Système)
+    cp.vm.disk :disk, size: "60GB", primary: true
+
+    cp.vm.provider "virtualbox" do |vb|
+      vb.name   = "controlplane"
+      vb.memory = 8144
+      vb.cpus   = 2
+      vb.customize ["modifyvm", :id, "--audio", "none"]
+      vb.customize ["modifyvm", :id, "--usb", "off"]
+    end
+  end
+
+  # ── Configuration des Workers ──────────────────────────────────────────────
+  nodes = 2
+  (1..nodes).each do |i|
+    config.vm.define "node#{i}" do |node|
+      node.vm.hostname = "node#{i}"
+      node.vm.network "private_network", type: "static", ip: "192.168.90.1#{i}"
+
+      # Un seul disque de 60Go (Système)
+      node.vm.disk :disk, size: "60GB", primary: true
+
+      node.vm.provider "virtualbox" do |vb|
+        vb.name   = "node#{i}"
+        vb.memory = 8144
+        vb.cpus   = 2
+        vb.customize ["modifyvm", :id, "--audio", "none"]
+        vb.customize ["modifyvm", :id, "--usb", "off"]
       end
     end
   end
