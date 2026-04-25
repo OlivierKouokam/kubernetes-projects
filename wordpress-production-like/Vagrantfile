@@ -10,7 +10,6 @@ Vagrant.configure("2") do |config|
     cp.vm.hostname = "controlplane"
     cp.vm.network "private_network", type: "static", ip: "192.168.90.10"
 
-    # Un seul disque de 60Go (Système)
     cp.vm.disk :disk, size: "60GB", primary: true
 
     cp.vm.provider "virtualbox" do |vb|
@@ -29,7 +28,6 @@ Vagrant.configure("2") do |config|
       node.vm.hostname = "node#{i}"
       node.vm.network "private_network", type: "static", ip: "192.168.90.1#{i}"
 
-      # Un seul disque de 60Go (Système)
       node.vm.disk :disk, size: "60GB", primary: true
 
       node.vm.provider "virtualbox" do |vb|
