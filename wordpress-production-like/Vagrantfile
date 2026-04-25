@@ -1,0 +1,44 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_check_update = false
+
+  # ── Configuration du Controlplane ──────────────────────────────────────────
+  config.vm.define "controlplane" do |cp|
+    cp.vm.hostname = "controlplane"
+    cp.vm.network "private_network", type: "static", ip: "192.168.90.10"
+
+    # Un seul disque de 60Go (Système)
+    cp.vm.disk :disk, size: "60GB", primary: true
+
+    cp.vm.provider "virtualbox" do |vb|
+      vb.name   = "controlplane"
+      vb.memory = 8144
+      vb.cpus   = 2
+      vb.customize ["modifyvm", :id, "--audio", "none"]
+      vb.customize ["modifyvm", :id, "--usb", "off"]
+    end
+  end
+
+  # ── Configuration des Workers ──────────────────────────────────────────────
+  nodes = 2
+  (1..nodes).each do |i|
+    config.vm.define "node#{i}" do |node|
+      node.vm.hostname = "node#{i}"
+      node.vm.network "private_network", type: "static", ip: "192.168.90.1#{i}"
+
+      # Un seul disque de 60Go (Système)
+      node.vm.disk :disk, size: "60GB", primary: true
+
+      node.vm.provider "virtualbox" do |vb|
+        vb.name   = "node#{i}"
+        vb.memory = 8144
+        vb.cpus   = 2
+        vb.customize ["modifyvm", :id, "--audio", "none"]
+        vb.customize ["modifyvm", :id, "--usb", "off"]
+      end
+    end
+  end
+end
