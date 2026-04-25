@@ -258,6 +258,11 @@ sudo systemctl status containerd
 ```bash
 sudo apt-get update
 sudo apt-get install -y nfs-common
+
+systemctl status rpcbind
+cat /proc/filesystems | grep nfs
+sudo modprobe nfs
+cat /proc/filesystems | grep nfs
 ```
 
 ---
