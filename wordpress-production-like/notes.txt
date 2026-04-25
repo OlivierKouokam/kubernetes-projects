@@ -1,0 +1,146 @@
+Phase A — La Fondation : Stockage Répliqué (Longhorn)
+
+sudo apt install -y open-iscsi nfs-common
+
+sudo systemctl enable --now iscsid
+
+helm repo add longhorn https://charts.longhorn.io
+
+helm repo update
+
+⚠️ ⚠️ ⚠️ 
+⚠️ Avant l'installation, formater et monter /dev/sdb sur chaque nœud : ⚠️ 
+sudo mkfs.ext4 /dev/sdb
+sudo mkdir -p /var/lib/longhorn
+echo '/dev/sdb /var/lib/longhorn ext4 defaults 0 0' | sudo tee -a /etc/fstab
+sudo mount -a
+⚠️ ⚠️ ⚠️ 
+
+helm install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --set defaultSettings.defaultDataPath="/var/lib/longhorn" \
+  --set defaultSettings.defaultReplicaCount=3
+
+kubectl get nodes -n longhorn-system
+
+kubectl get storageclass longhorn
+
+kubectl port-forward -n longhorn-system svc/longhorn-frontend 8080:80
+
+Phase B — Les Services de Données (HA & Quorum)
+
+B.1 — MariaDB Galera
+
+mariadb-values.yaml
+## Configuration de l'image
+image:
+  repository: bitnamilegacy/mariadb-galera
+  tag: 11.4.5-debian-12-r1
+
+## Utilisation du secret existant pour les mots de passe
+existingSecret: "mariadb-passwords"
+
+## Configuration de la base de données
+db:
+  user: wordpress
+  name: wordpress
+
+## Haute Disponibilité
+replicaCount: 3
+
+# Anti-affinité HARD car ton controlplane est schedulable (3 nœuds dispo)
+podAntiAffinityPreset: hard
+
+## Stockage via Longhorn
+persistence:
+  enabled: true
+  storageClass: "longhorn"
+  size: 1Gi
+
+## Ressources (ajustées pour tes 8Go de RAM par VM)
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1.5Gi
+
+## Configuration spécifique Galera
+galera:
+  mariabackup:
+    # On précise que le mot de passe est dans le secret existant
+    existingSecret: "mariadb-passwords"
+
+
+helm install mariadb-galera oci://registry-1.docker.io/bitnamicharts/mariadb-galera \
+  --namespace wordpress \
+  -f mariadb-values.yaml
+
+
+B.2 — Redis Sentinel
+
+redis-values.yaml
+## Configuration de l'image (Legacy)
+image:
+  repository: bitnamilegacy/redis
+  tag: 7.2.4-debian-12-r11  # Tag spécifique Debian 12
+
+## Mode Haute Disponibilité
+architecture: replication
+
+## Nombre de réplicas (total de 3 nœuds pour le quorum)
+replicaCount: 3
+
+## Activation de Sentinel (C'est lui qui gère l'auto-failover)
+sentinel:
+  enabled: true
+  masterSet: redis-master
+  quorum: 2
+  # On utilise aussi l'image legacy pour sentinel
+  image:
+    repository: bitnamilegacy/redis-sentinel
+    tag: 7.2.4-debian-12-r11
+
+## Anti-affinité HARD (1 pod par VM obligatoirement)
+podAntiAffinityPreset: hard
+
+## Persistance via Longhorn
+master:
+  persistence:
+    enabled: true
+    storageClass: "longhorn"
+    size: 2Gi
+replica:
+  persistence:
+    enabled: true
+    storageClass: "longhorn"
+    size: 2Gi
+
+## Sécurité : Utilisation de ton secret existant (optionnel mais recommandé)
+# existingSecret: "redis-passwords"
+# auth:
+#   usePasswordFiles: true
+
+
+helm install redis-ha oci://registry-1.docker.io/bitnamicharts/redis \
+  --namespace wordpress \
+  -f redis-values.yaml
+
+
+Phase C — MinIO
+
+
+helm install minio-ha oci://registry-1.docker.io/bitnamicharts/minio \
+  --namespace wordpress \
+  -f minio-values.yaml
+
+
+Phase D — WordPress HA Stateless & RWX
+
+
+Résumé de la Stack
+
+
+Le Test Ultime — Chaos Engineering
