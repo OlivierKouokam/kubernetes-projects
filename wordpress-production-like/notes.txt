@@ -257,11 +257,11 @@ resources:
     memory: 512Mi
     cpu: 500m
 
->> TEST MINIO HA <<
 helm install minio-ha oci://registry-1.docker.io/bitnamicharts/minio \
   --namespace wordpress \
   -f minio-values.yaml
 
+>> TEST MINIO HA <<
 kubectl run --namespace wordpress minio-ha-client \
      --rm --tty -i --restart='Never' \
      --env MINIO_SERVER_ROOT_USER=$ROOT_USER \
@@ -280,7 +280,7 @@ ii- Uploader un fichier : echo "minio test data" > test.txt && mc cp test.txt my
 iii- Lister : mc ls myminio/test-bucket/
 
 # On cible le pod 0 directement
-kubectl port-forward -n wordpress pod/minio-ha-0 9001:9001
+kubectl port-forward -n wordpress pod/minio-ha-0 9001:9001 --address 0.0.0.0
 
 Phase D — WordPress HA Stateless & RWX
 
