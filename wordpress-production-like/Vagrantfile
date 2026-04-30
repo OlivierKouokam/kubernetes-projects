@@ -14,7 +14,7 @@ Vagrant.configure("2") do |config|
 
     cp.vm.provider "virtualbox" do |vb|
       vb.name   = "controlplane"
-      vb.memory = 8144
+      vb.memory = 8192
       vb.cpus   = 2
       vb.customize ["modifyvm", :id, "--audio", "none"]
       vb.customize ["modifyvm", :id, "--usb", "off"]
@@ -32,7 +32,7 @@ Vagrant.configure("2") do |config|
 
       node.vm.provider "virtualbox" do |vb|
         vb.name   = "node#{i}"
-        vb.memory = 8144
+        vb.memory = 8192
         vb.cpus   = 2
         vb.customize ["modifyvm", :id, "--audio", "none"]
         vb.customize ["modifyvm", :id, "--usb", "off"]
