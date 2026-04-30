@@ -1,0 +1,51 @@
+## Configuration de l'image (Legacy)
+image:
+  repository: bitnamilegacy/redis
+  tag: 7.2.4-debian-12-r11  # Tag spécifique Debian 12
+
+## Mode Haute Disponibilité
+architecture: replication
+
+## Nombre de réplicas (total de 3 nœuds pour le quorum)
+replicaCount: 3
+
+## Activation de Sentinel (C'est lui qui gère l'auto-failover)
+sentinel:
+  enabled: true
+  masterSet: redis-master
+  quorum: 2
+  # On utilise aussi l'image legacy pour sentinel
+  image:
+    repository: bitnamilegacy/redis-sentinel
+    tag: 7.2.4-debian-12-r11
+
+## Anti-affinité HARD (1 pod par VM obligatoirement)
+podAntiAffinityPreset: hard
+
+## Persistance via Longhorn
+master:
+  persistence:
+    enabled: true
+    storageClass: "longhorn"
+    size: 2Gi
+replica:
+  persistence:
+    enabled: true
+    storageClass: "longhorn"
+    size: 2Gi
+
+## Sécurité : Utilisation de ton secret existant (optionnel mais recommandé)
+# existingSecret: "redis-passwords"
+# auth:
+#   usePasswordFiles: true
+
+## Désactiver le chargement des modules qui plantent sur l'image legacy
+commonConfiguration: |
+  # On laisse vide ou on ajoute des configs standards
+  # Cela va écraser la tentative de chargement automatique de modules inexistants
+
+## Alternativement, force les modules à vide dans les paramètres du chart
+master:
+  extraFlags: []
+replica:
+  extraFlags: []
