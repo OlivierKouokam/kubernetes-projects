@@ -1,0 +1,71 @@
+## Désactiver le déploiement de la console séparée (qui pose problème)
+console:
+  enabled: false
+
+## Activer l'interface utilisateur intégrée au serveur MinIO
+api:
+  browser: "on"
+
+## Image Bitnami
+image:
+  repository: bitnamilegacy/minio
+  tag: 2024.11.7-debian-12-r0  # Exemple de version stable
+
+## Forcer le port de la console interne
+extraArgs:
+  - server
+  - --console-address
+  - :9001
+
+#extraEnvVars:
+#  - name: MINIO_BROWSER_REDIRECT_PORT
+#    value: "9001"
+#  - name: MINIO_SERVER_URL
+#    value: "http://minio-ha.wordpress.svc.cluster.local:9000"
+#  - name: MINIO_BROWSER
+#    value: "on"
+## Utilise les variables d'environnement natives de l'image
+extraEnvVars:
+  - name: MINIO_API_PORT
+    value: "9000"
+  - name: MINIO_CONSOLE_PORT
+    value: "9001"
+  - name: MINIO_BROWSER
+    value: "on"
+
+# MinIO nécessite au moins 4 réplicas pour l'Erasure Coding
+mode: distributed
+replicas: 4
+
+## Authentification
+auth:
+  rootUser: "admin-ha"
+  rootPassword: "mini0_1234" # À changer !
+
+## Persistance via Longhorn
+persistence:
+  enabled: true
+  storageClass: "longhorn"
+  size: 1Gi  # Ajuste selon tes besoins en médias WordPress
+
+## Anti-affinité
+# Comme tu as 3 nœuds pour 4 pods, on ne peut pas mettre "hard" (sinon le 4ème pod ne démarrera pas).
+# On utilise "soft" pour répartir au mieux.
+podAntiAffinityPreset: soft
+
+## Service & Console
+# La console est l'interface web de MinIO (port 9001)
+service:
+  type: ClusterIP
+  ports:
+    api: 9000
+    console: 9001
+
+## Ressources (Optionnel mais recommandé pour éviter l'OOM Kill)
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
