@@ -159,9 +159,9 @@ replica:
     size: 2Gi
 
 ## Sécurité : Utilisation de ton secret existant (optionnel mais recommandé)
-# existingSecret: "redis-passwords"
-# auth:
-#   usePasswordFiles: true
+auth:
+  usePasswordFiles: true
+  existingSecret: "redis-passwords"
 
 
 helm install redis-ha oci://registry-1.docker.io/bitnamicharts/redis \
