@@ -113,6 +113,8 @@ SELECT VARIABLE_VALUE as "Cluster_Status"
 FROM information_schema.GLOBAL_STATUS 
 WHERE VARIABLE_NAME = 'wsrep_local_state_comment';
 
+SELECT @@hostname;
+
 CREATE TABLE k8s_test (id INT PRIMARY KEY, name VARCHAR(20));
 INSERT INTO k8s_test VALUES (1, 'Galera_Working');
 SELECT * FROM k8s_test;
