@@ -1,0 +1,39 @@
+## Configuration de l'image
+image:
+  repository: bitnamilegacy/mariadb-galera
+  tag: 11.4.5-debian-12-r1
+
+## Utilisation du secret existant pour les mots de passe
+existingSecret: "mariadb-passwords"
+
+## Configuration de la base de données
+db:
+  user: wordpress
+  name: wordpress
+
+## Haute Disponibilité
+replicaCount: 3
+
+# Anti-affinité HARD car ton controlplane est schedulable (3 nœuds dispo)
+podAntiAffinityPreset: hard
+
+## Stockage via Longhorn
+persistence:
+  enabled: true
+  storageClass: "longhorn"
+  size: 1Gi
+
+## Ressources (ajustées pour tes 8Go de RAM par VM)
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1.5Gi
+
+## Configuration spécifique Galera
+galera:
+  mariabackup:
+    # On précise que le mot de passe est dans le secret existant
+    existingSecret: "mariadb-passwords"
