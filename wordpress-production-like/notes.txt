@@ -262,6 +262,25 @@ helm install minio-ha oci://registry-1.docker.io/bitnamicharts/minio \
   --namespace wordpress \
   -f minio-values.yaml
 
+kubectl run --namespace wordpress minio-ha-client \
+     --rm --tty -i --restart='Never' \
+     --env MINIO_SERVER_ROOT_USER=$ROOT_USER \
+     --env MINIO_SERVER_ROOT_PASSWORD=$ROOT_PASSWORD \
+     --env MINIO_SERVER_HOST=minio-ha \
+     --image docker.io/bitnamilegacy/minio-client:2025.7.21-debian-12-r2 -- /bin/bash
+
+# Configurer l'accès
+mc alias set myminio http://$MINIO_SERVER_HOST:9000 $MINIO_SERVER_ROOT_USER $MINIO_SERVER_ROOT_PASSWORD
+
+# Vérifier l'état de santé du cluster (Très important en HA)
+mc admin info myminio
+
+i- Créer un bucket : mc mb myminio/test-bucket
+ii- Uploader un fichier : echo "minio test data" > test.txt && mc cp test.txt myminio/test-bucket/
+iii- Lister : mc ls myminio/test-bucket/
+
+# On cible le pod 0 directement
+kubectl port-forward -n wordpress pod/minio-ha-0 9001:9001
 
 Phase D — WordPress HA Stateless & RWX
 
