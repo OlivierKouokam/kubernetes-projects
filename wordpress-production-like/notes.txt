@@ -121,6 +121,19 @@ SELECT * FROM k8s_test;
 
 B.2 — Redis Sentinel
 
+redis-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-passwords
+  namespace: wordpress
+type: Opaque
+stringData:
+  redis-password: "R€disP@ss123"
+  redis-sentinel-password: "5entinel_P@ss123"
+
+kubectl apply -f redis-secret.yaml
+
 redis-values.yaml
 ## Configuration de l'image (Legacy)
 image:
