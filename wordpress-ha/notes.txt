@@ -284,6 +284,103 @@ kubectl port-forward -n wordpress pod/minio-ha-0 9001:9001 --address 0.0.0.0
 
 Phase D — WordPress HA Stateless & RWX
 
+D.1 — Prérequis : Le Bucket MinIO
+Avant de lancer WordPress, tu dois créer le bucket qui accueillera les médias.
+
+i- Accède à ton interface MinIO (via le port-forward 9001 que tu as déjà testé).
+ii- Crée un bucket nommé : wordpress-media.
+iii- (Optionnel mais conseillé) : Règle la "Access Policy" du bucket sur Public (si tu ne veux pas gérer de proxies de signature d'URL complexes au début).
+
+D.2 — Configuration du fichier wordpress-values.yaml
+replicaCount: 3
+
+## Utilisation de l'image Bitnami (Stateless-ready)
+image:
+  repository: bitnamilegacy/wordpress
+  tag: 6.4.3-debian-12-r1
+
+## 1. Connexion MariaDB Galera (Service existant)
+externalDatabase:
+  host: mariadb-galera
+  user: wordpress
+  database: wordpress
+  existingSecret: "mariadb-passwords"
+  existingSecretPasswordKey: "mariadb-password"
+
+mariadb:
+  enabled: false
+
+## 2. Connexion Redis Sentinel (Service existant)
+# Note : Bitnami WordPress utilise ces variables pour configurer wp-config.php
+allowRemoteConnections: true
+wordpressSkipInstall: false
+
+## 3. Persistance RWX via Longhorn
+# Requis pour que les 3 pods partagent wp-content/themes et wp-content/plugins
+persistence:
+  enabled: true
+  storageClass: "longhorn"
+  accessMode: ReadWriteMany
+  size: 10Gi
+
+## 4. Configuration Redis Object Cache & S3 (via wp-config.php)
+# On injecte la configuration directement dans le code pour automatiser les plugins
+wordpressExtraConfigContent: |
+  // Configuration Redis Sentinel
+  define( 'WP_REDIS_SENTINEL', 'redis-ha' );
+  define( 'WP_REDIS_SERVERS', [
+      'tcp://redis-ha-node-0.redis-ha-headless:6379',
+      'tcp://redis-ha-node-1.redis-ha-headless:6379',
+      'tcp://redis-ha-node-2.redis-ha-headless:6379'
+  ]);
+  define( 'WP_REDIS_PASSWORD', 'R€disP@ss123' );
+
+  // Configuration S3 pour MinIO (utilisé par WP Offload Media / S3 Uploads)
+  define( 'AS3CF_SETTINGS', serialize( array(
+      'provider' => 'aws',
+      'use-server-roles' => false,
+      'access-key-id' => 'admin-ha',
+      'secret-access-key' => 'mini0_1234',
+  ) ) );
+
+## 5. Anti-Affinité (1 WordPress par nœud VM)
+podAntiAffinityPreset: hard
+
+## 6. Service & Ingress
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: true
+  hostname: wordpress.local # À adapter à ton DNS
+###
+
+D.3 — Installation de WordPress
+helm install wordpress-ha oci://registry-1.docker.io/bitnamicharts/wordpress \
+  --namespace wordpress \
+  -f wordpress-values.yaml
+
+Phase E — Configuration des Plugins (Post-Install)
+Une fois WordPress en ligne, connecte-toi à l'admin (/wp-admin) :
+
+1. Redis Object Cache
+a- Installe le plugin Redis Object Cache.
+b- Comme nous avons déjà injecté les constantes WP_REDIS_SENTINEL dans le wp-config.php, clique simplement sur "Enable Object Cache".
+c- Vérifie dans l'onglet "Diagnostics" qu'il voit bien les 3 nœuds Sentinel.
+
+2. MinIO (WP Offload Media Lite)
+a- Installe le plugin WP Offload Media Lite.
+b- Sélectionne Amazon S3 comme fournisseur (MinIO est compatible S3).
+c- Dans "Connection Method", il devrait détecter tes clés définies dans AS3CF_SETTINGS.
+d- Renseigne le bucket : wordpress-media.
+e- Crucial : Change le "Custom Endpoint" pour : http://minio-ha:9000.
+
+Pourquoi cette architecture est robuste ?
++ Galera : Si le pod mariadb-galera-0 meurt, WordPress bascule sur le service mariadb-galera qui pointe vers les survivants.
++ Sentinel : Si le Master Redis tombe, Sentinel élit un nouveau Master en < 10s. WordPress suit grâce au plugin.
++ MinIO : Ton stockage média est distribué sur 4 pods (Erasure Coding). Même avec 1 pod MinIO hors ligne, tes images restent servies.
++ Longhorn RWX : Si tu mets à jour un thème sur le Pod A, le Pod B et C voient la modification instantanément car ils partagent le même volume NFS interne géré par Longhorn.
+
 
 Résumé de la Stack
 
