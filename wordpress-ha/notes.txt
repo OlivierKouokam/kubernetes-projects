@@ -292,7 +292,80 @@ ii- Crée un bucket nommé : wordpress-media.
 iii- (Optionnel mais conseillé) : Règle la "Access Policy" du bucket sur Public (si tu ne veux pas gérer de proxies de signature d'URL complexes au début).
 
 D.2 — Configuration du fichier wordpress-values.yaml
+replicaCount: 3
 
+## Utilisation de l'image Bitnami (Stateless-ready)
+image:
+  repository: bitnamilegacy/wordpress
+  tag: 6.8.2-debian-12-r5
+
+## 1. Connexion MariaDB Galera (Service existant)
+externalDatabase:
+  host: mariadb-galera
+  user: wordpress
+  database: wordpress
+  existingSecret: "mariadb-passwords"
+  existingSecretPasswordKey: "mariadb-password"
+
+mariadb:
+  enabled: false
+
+## 2. Connexion Redis Sentinel (Service existant)
+allowRemoteConnections: true
+wordpressSkipInstall: true # <-- Modifié ici pour ignorer l'installation
+
+## 3. Persistance RWX via Longhorn
+persistence:
+  enabled: true
+  storageClass: "longhorn"
+  accessModes:
+    - ReadWriteMany
+  size: 2Gi
+
+## 4. Configuration Redis Object Cache & S3 (via wp-config.php)
+wordpressExtraConfigContent: |
+  // Configuration Redis Sentinel
+  define( 'WP_REDIS_SENTINEL', 'redis-ha' );
+  define( 'WP_REDIS_SERVERS', [
+      'tcp://redis-ha-node-0.redis-ha-headless:6379',
+      'tcp://redis-ha-node-1.redis-ha-headless:6379',
+      'tcp://redis-ha-node-2.redis-ha-headless:6379'
+  ]);
+  define( 'WP_REDIS_PASSWORD', 'R€disP@ss123' );
+
+  // Configuration S3 pour MinIO (utilisé par WP Offload Media / S3 Uploads)
+  define( 'AS3CF_SETTINGS', serialize( array(
+      'provider' => 'aws',
+      'use-server-roles' => false,
+      'access-key-id' => 'admin-ha',
+      'secret-access-key' => 'mini0_1234',
+  ) ) );
+
+## 5. Anti-Affinité (1 WordPress par nœud VM)
+podAntiAffinityPreset: hard
+
+## 6. Service & Ingress
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: true
+  hostname: wordpress.local # À adapter à votre DNS
+
+## Activer les logs détaillés pour le diagnostic
+extraEnvVars:
+  - name: BITNAMI_DEBUG
+    value: "true"
+  - name: WORDPRESS_SKIP_BOOTSTRAP # <-- Ajouté ici pour éviter l'erreur de l'ID utilisateur
+    value: "yes"
+
+## Forcer les permissions sur le volume pour éviter les erreurs d'écriture
+volumePermissions:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/os-shell
+    tag: "12-debian-12-r50"
 ###
 
 D.3 — Installation de WordPress
