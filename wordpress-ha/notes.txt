@@ -374,6 +374,13 @@ helm upgrade --install wordpress-ha oci://registry-1.docker.io/bitnamicharts/wor
   --namespace wordpress \
   -f wordpress-values.yaml
 
+kubectl run mariadb-client --rm --tty -i --restart='Never' --namespace wordpress \
+  --image docker.io/bitnamilegacy/mariadb-galera:11.4.5-debian-12-r1 \
+  -- mysql -h mariadb-galera -uwordpress -p$(kubectl get secret --namespace wordpress mariadb-passwords -o jsonpath="{.data.mariadb-password}" | base64 -d) wordpress
+
+UPDATE wp_users SET user_pass = MD5('BQGkaB5oIY') WHERE user_login = 'user';
+
+
 Phase E — Configuration des Plugins (Post-Install)
 Une fois WordPress en ligne, connecte-toi à l'admin (/wp-admin) :
 
