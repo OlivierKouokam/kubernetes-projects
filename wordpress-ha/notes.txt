@@ -296,7 +296,8 @@ D.2 — Configuration du fichier wordpress-values.yaml
 ###
 
 D.3 — Installation de WordPress
-helm install wordpress-ha oci://registry-1.docker.io/bitnamicharts/wordpress \
+helm upgrade --install wordpress-ha oci://registry-1.docker.io/bitnamicharts/wordpress \
+  --version 26.0.0 \
   --namespace wordpress \
   -f wordpress-values.yaml
 
