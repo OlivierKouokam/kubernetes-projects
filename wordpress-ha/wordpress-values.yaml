@@ -1,0 +1,61 @@
+replicaCount: 3
+
+## Utilisation de l'image Bitnami (Stateless-ready)
+image:
+  repository: bitnamilegacy/wordpress
+  tag: 6.4.3-debian-12-r1
+
+## 1. Connexion MariaDB Galera (Service existant)
+externalDatabase:
+  host: mariadb-galera
+  user: wordpress
+  database: wordpress
+  existingSecret: "mariadb-passwords"
+  existingSecretPasswordKey: "mariadb-password"
+
+mariadb:
+  enabled: false
+
+## 2. Connexion Redis Sentinel (Service existant)
+# Note : Bitnami WordPress utilise ces variables pour configurer wp-config.php
+allowRemoteConnections: true
+wordpressSkipInstall: false
+
+## 3. Persistance RWX via Longhorn
+# Requis pour que les 3 pods partagent wp-content/themes et wp-content/plugins
+persistence:
+  enabled: true
+  storageClass: "longhorn"
+  accessMode: ReadWriteMany
+  size: 10Gi
+
+## 4. Configuration Redis Object Cache & S3 (via wp-config.php)
+# On injecte la configuration directement dans le code pour automatiser les plugins
+wordpressExtraConfigContent: |
+  // Configuration Redis Sentinel
+  define( 'WP_REDIS_SENTINEL', 'redis-ha' );
+  define( 'WP_REDIS_SERVERS', [
+      'tcp://redis-ha-node-0.redis-ha-headless:6379',
+      'tcp://redis-ha-node-1.redis-ha-headless:6379',
+      'tcp://redis-ha-node-2.redis-ha-headless:6379'
+  ]);
+  define( 'WP_REDIS_PASSWORD', 'R€disP@ss123' );
+
+  // Configuration S3 pour MinIO (utilisé par WP Offload Media / S3 Uploads)
+  define( 'AS3CF_SETTINGS', serialize( array(
+      'provider' => 'aws',
+      'use-server-roles' => false,
+      'access-key-id' => 'admin-ha',
+      'secret-access-key' => 'mini0_1234',
+  ) ) );
+
+## 5. Anti-Affinité (1 WordPress par nœud VM)
+podAntiAffinityPreset: hard
+
+## 6. Service & Ingress
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: true
+  hostname: wordpress.local # À adapter à ton DNS
