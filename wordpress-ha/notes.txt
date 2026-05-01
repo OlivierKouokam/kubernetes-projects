@@ -26,7 +26,7 @@ kubectl get nodes -n longhorn-system
 
 kubectl get storageclass longhorn
 
-kubectl port-forward -n longhorn-system svc/longhorn-frontend 8080:80
+kubectl port-forward -n longhorn-system svc/longhorn-frontend 8080:80 --address 0.0.0.0
 
 Phase B — Les Services de Données (HA & Quorum)
 
