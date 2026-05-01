@@ -26,7 +26,8 @@ wordpressSkipInstall: false
 persistence:
   enabled: true
   storageClass: "longhorn"
-  accessMode: ReadWriteMany
+  accessModes:
+    - ReadWriteMany
   size: 2Gi
 
 ## 4. Configuration Redis Object Cache & S3 (via wp-config.php)
