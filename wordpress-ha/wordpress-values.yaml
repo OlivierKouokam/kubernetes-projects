@@ -3,7 +3,7 @@ replicaCount: 3
 ## Utilisation de l'image Bitnami (Stateless-ready)
 image:
   repository: bitnamilegacy/wordpress
-  tag: 6.4.3-debian-12-r18
+  tag: 6.8.2-debian-12-r5
 
 ## 1. Connexion MariaDB Galera (Service existant)
 externalDatabase:
@@ -17,12 +17,10 @@ mariadb:
   enabled: false
 
 ## 2. Connexion Redis Sentinel (Service existant)
-# Note : Bitnami WordPress utilise ces variables pour configurer wp-config.php
 allowRemoteConnections: true
-wordpressSkipInstall: false
+wordpressSkipInstall: true # <-- Modifié ici pour ignorer l'installation
 
 ## 3. Persistance RWX via Longhorn
-# Requis pour que les 3 pods partagent wp-content/themes et wp-content/plugins
 persistence:
   enabled: true
   storageClass: "longhorn"
@@ -31,7 +29,6 @@ persistence:
   size: 2Gi
 
 ## 4. Configuration Redis Object Cache & S3 (via wp-config.php)
-# On injecte la configuration directement dans le code pour automatiser les plugins
 wordpressExtraConfigContent: |
   // Configuration Redis Sentinel
   define( 'WP_REDIS_SENTINEL', 'redis-ha' );
@@ -59,4 +56,19 @@ service:
 
 ingress:
   enabled: true
-  hostname: wordpress.local # À adapter à ton DNS
+  hostname: wordpress.local # À adapter à votre DNS
+
+## Activer les logs détaillés pour le diagnostic
+extraEnvVars:
+  - name: BITNAMI_DEBUG
+    value: "true"
+  - name: WORDPRESS_SKIP_BOOTSTRAP # <-- Ajouté ici pour éviter l'erreur de l'ID utilisateur
+    value: "yes"
+
+## Forcer les permissions sur le volume pour éviter les erreurs d'écriture
+volumePermissions:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/os-shell
+    tag: "12-debian-12-r50"
