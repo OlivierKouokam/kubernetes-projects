@@ -33,9 +33,7 @@ wordpressExtraConfigContent: |
   // Configuration Redis Sentinel
   define( 'WP_REDIS_SENTINEL', 'redis-ha' );
   define( 'WP_REDIS_SERVERS', [
-      'tcp://redis-ha-node-0.redis-ha-headless:6379',
-      'tcp://redis-ha-node-1.redis-ha-headless:6379',
-      'tcp://redis-ha-node-2.redis-ha-headless:6379'
+      'tcp://redis-ha:26379'
   ]);
   define( 'WP_REDIS_PASSWORD', 'R€disP@ss123' );
 
@@ -44,7 +42,7 @@ wordpressExtraConfigContent: |
       'provider' => 'custom',
       'access-key-id' => 'admin-ha',
       'secret-access-key' => 'mini0_1234',
-      'endpoint' => 'http://minio.wordpress.svc.cluster.local:9000', // ADAPTEZ CETTE URL
+      'endpoint' => 'http://minio.wordpress.svc.cluster.local:9000',
       'use-server-roles' => false,
       'force-path-style' => true,
   ) ) );
