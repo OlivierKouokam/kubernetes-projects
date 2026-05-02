@@ -32,19 +32,18 @@ persistence:
 wordpressExtraConfigContent: |
   // Configuration Redis Sentinel
   define( 'WP_REDIS_SENTINEL', 'redis-ha' );
-  define( 'WP_REDIS_SERVERS', [
-      'tcp://redis-ha:26379'
-  ]);
   define( 'WP_REDIS_PASSWORD', 'R€disP@ss123' );
+  define( 'WP_REDIS_SENTINEL_MASTER', 'redis-master' );
 
   // Configuration S3 pour MinIO
   define( 'AS3CF_SETTINGS', serialize( array(
-      'provider' => 'custom',
-      'access-key-id' => 'admin-ha',
-      'secret-access-key' => 'mini0_1234',
-      'endpoint' => 'http://minio-ha.wordpress.svc.cluster.local:9000',
-      'use-server-roles' => false,
-      'force-path-style' => true,
+    'provider' => 'custom',
+    'access-key-id' => 'admin-ha',
+    'secret-access-key' => 'mini0_1234',
+    'endpoint' => 'http://minio-ha.wordpress.svc.cluster.local:9000',
+    'force-path-style' => true,
+    'region' => 'us-east-1',
+    'signature' => 'v4' // Force la signature v4, nécessaire pour MinIO
   ) ) );
   
 ## 5. Anti-Affinité (1 WordPress par nœud VM)
