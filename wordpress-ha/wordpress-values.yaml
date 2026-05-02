@@ -44,7 +44,7 @@ wordpressExtraConfigContent: |
       'provider' => 'custom',
       'access-key-id' => 'admin-ha',
       'secret-access-key' => 'mini0_1234',
-      'endpoint' => 'http://minio.namespace.svc.cluster.local:9000', // ADAPTEZ CETTE URL
+      'endpoint' => 'http://minio.wordpress.svc.cluster.local:9000', // ADAPTEZ CETTE URL
       'use-server-roles' => false,
       'force-path-style' => true,
   ) ) );
