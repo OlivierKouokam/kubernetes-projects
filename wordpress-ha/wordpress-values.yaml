@@ -39,14 +39,16 @@ wordpressExtraConfigContent: |
   ]);
   define( 'WP_REDIS_PASSWORD', 'R€disP@ss123' );
 
-  // Configuration S3 pour MinIO (utilisé par WP Offload Media / S3 Uploads)
+  // Configuration S3 pour MinIO
   define( 'AS3CF_SETTINGS', serialize( array(
-      'provider' => 'aws',
-      'use-server-roles' => false,
+      'provider' => 'custom',
       'access-key-id' => 'admin-ha',
       'secret-access-key' => 'mini0_1234',
+      'endpoint' => 'http://minio.namespace.svc.cluster.local:9000', // ADAPTEZ CETTE URL
+      'use-server-roles' => false,
+      'force-path-style' => true,
   ) ) );
-
+  
 ## 5. Anti-Affinité (1 WordPress par nœud VM)
 podAntiAffinityPreset: hard
 
