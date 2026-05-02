@@ -42,7 +42,7 @@ wordpressExtraConfigContent: |
       'provider' => 'custom',
       'access-key-id' => 'admin-ha',
       'secret-access-key' => 'mini0_1234',
-      'endpoint' => 'http://minio.wordpress.svc.cluster.local:9000',
+      'endpoint' => 'http://minio-ha.wordpress.svc.cluster.local:9000',
       'use-server-roles' => false,
       'force-path-style' => true,
   ) ) );
