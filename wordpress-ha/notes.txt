@@ -19,8 +19,7 @@ sudo mount -a
 helm install longhorn longhorn/longhorn \
   --namespace longhorn-system \
   --create-namespace \
-  --set defaultSettings.defaultDataPath="/var/lib/longhorn" \
-  --set defaultSettings.defaultReplicaCount=3
+  -f longhorn-values.yaml
 
 kubectl get nodes -n longhorn-system
 
@@ -32,69 +31,7 @@ Phase B — Les Services de Données (HA & Quorum)
 
 B.1 — MariaDB Galera
 
-mariadb-secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mariadb-passwords
-  namespace: wordpress
-type: Opaque
-stringData:
-  # Mot de passe ROOT (Admin)
-  mariadb-root-password: "votre_mot_de_passe_root"
-  
-  # Mot de passe Utilisateur (WordPress)
-  mariadb-password: "votre_mot_de_passe_utilisateur"
-  
-  # Mot de passe Réplication Galera (Clé exacte de votre ancien script)
-  mariadb-galera-mariabackup-password: "votre_mot_de_passe_replication"
-  
-  # Doublon de sécurité (parfois requis par les nouvelles versions du chart)
-  mariadb-galera-password: "votre_mot_de_passe_replication"
-
 kubectl apply -f mariadb-secret.yaml
-
-mariadb-values.yaml
-## Configuration de l'image
-image:
-  repository: bitnamilegacy/mariadb-galera
-  tag: 11.4.5-debian-12-r1
-
-## Utilisation du secret existant pour les mots de passe
-existingSecret: "mariadb-passwords"
-
-## Configuration de la base de données
-db:
-  user: wordpress
-  name: wordpress
-
-## Haute Disponibilité
-replicaCount: 3
-
-# Anti-affinité HARD car ton controlplane est schedulable (3 nœuds dispo)
-podAntiAffinityPreset: hard
-
-## Stockage via Longhorn
-persistence:
-  enabled: true
-  storageClass: "longhorn"
-  size: 1Gi
-
-## Ressources (ajustées pour tes 8Go de RAM par VM)
-resources:
-  requests:
-    cpu: 250m
-    memory: 512Mi
-  limits:
-    cpu: 1000m
-    memory: 1.5Gi
-
-## Configuration spécifique Galera
-galera:
-  mariabackup:
-    # On précise que le mot de passe est dans le secret existant
-    existingSecret: "mariadb-passwords"
-
 
 helm install mariadb-galera oci://registry-1.docker.io/bitnamicharts/mariadb-galera \
   --namespace wordpress \
@@ -121,141 +58,11 @@ SELECT * FROM k8s_test;
 
 B.2 — Redis Sentinel
 
-redis-secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: redis-passwords
-  namespace: wordpress
-type: Opaque
-stringData:
-  redis-password: "R€disP@ss123"
-  redis-sentinel-password: "5entinel_P@ss123"
-
-kubectl apply -f redis-secret.yaml
-
-redis-values.yaml
-## Configuration de l'image (Legacy)
-image:
-  repository: bitnamilegacy/redis
-  tag: 7.2.4-debian-12-r11  # Tag spécifique Debian 12
-
-## Mode Haute Disponibilité
-architecture: replication
-
-## Nombre de réplicas (total de 3 nœuds pour le quorum)
-replicaCount: 3
-
-## Activation de Sentinel (C'est lui qui gère l'auto-failover)
-sentinel:
-  enabled: true
-  masterSet: redis-master
-  quorum: 2
-  # On utilise aussi l'image legacy pour sentinel
-  image:
-    repository: bitnamilegacy/redis-sentinel
-    tag: 7.2.4-debian-12-r11
-
-## Anti-affinité HARD (1 pod par VM obligatoirement)
-podAntiAffinityPreset: hard
-
-## Persistance via Longhorn
-master:
-  persistence:
-    enabled: true
-    storageClass: "longhorn"
-    size: 2Gi
-replica:
-  persistence:
-    enabled: true
-    storageClass: "longhorn"
-    size: 2Gi
-
-## Sécurité : Utilisation de ton secret existant (optionnel mais recommandé)
-auth:
-  usePasswordFiles: true
-  existingSecret: "redis-passwords"
-
-
 helm install redis-ha oci://registry-1.docker.io/bitnamicharts/redis \
   --namespace wordpress \
   -f redis-values.yaml
 
-
 Phase C — MinIO
-
-minio-values.yaml
-## Désactiver le déploiement de la console séparée (qui pose problème)
-console:
-  enabled: false
-
-## Activer l'interface utilisateur intégrée au serveur MinIO
-api:
-  browser: "on"
-
-## Image Bitnami
-image:
-  repository: bitnamilegacy/minio
-  tag: 2024.11.7-debian-12-r0  # Exemple de version stable
-
-## Forcer le port de la console interne
-extraArgs:
-  - server
-  - --console-address
-  - :9001
-
-#extraEnvVars:
-#  - name: MINIO_BROWSER_REDIRECT_PORT
-#    value: "9001"
-#  - name: MINIO_SERVER_URL
-#    value: "http://minio-ha.wordpress.svc.cluster.local:9000"
-#  - name: MINIO_BROWSER
-#    value: "on"
-## Utilise les variables d'environnement natives de l'image
-extraEnvVars:
-  - name: MINIO_API_PORT
-    value: "9000"
-  - name: MINIO_CONSOLE_PORT
-    value: "9001"
-  - name: MINIO_BROWSER
-    value: "on"
-
-# MinIO nécessite au moins 4 réplicas pour l'Erasure Coding
-mode: distributed
-replicas: 4
-
-## Authentification
-auth:
-  rootUser: "admin-ha"
-  rootPassword: "mini0_1234" # À changer !
-
-## Persistance via Longhorn
-persistence:
-  enabled: true
-  storageClass: "longhorn"
-  size: 1Gi  # Ajuste selon tes besoins en médias WordPress
-
-## Anti-affinité
-# Comme tu as 3 nœuds pour 4 pods, on ne peut pas mettre "hard" (sinon le 4ème pod ne démarrera pas).
-# On utilise "soft" pour répartir au mieux.
-podAntiAffinityPreset: soft
-
-## Service & Console
-# La console est l'interface web de MinIO (port 9001)
-service:
-  type: ClusterIP
-  ports:
-    api: 9000
-    console: 9001
-
-## Ressources (Optionnel mais recommandé pour éviter l'OOM Kill)
-resources:
-  requests:
-    memory: 256Mi
-    cpu: 100m
-  limits:
-    memory: 512Mi
-    cpu: 500m
 
 helm install minio-ha oci://registry-1.docker.io/bitnamicharts/minio \
   --namespace wordpress \
@@ -301,6 +108,7 @@ helm upgrade --install wordpress-ha oci://registry-1.docker.io/bitnamicharts/wor
   --namespace wordpress \
   -f wordpress-values.yaml
 
+>> UPDATE user PASSWORD
 kubectl run mariadb-client --rm --tty -i --restart='Never' --namespace wordpress \
   --image docker.io/bitnamilegacy/mariadb-galera:11.4.5-debian-12-r1 \
   -- mysql -h mariadb-galera -uwordpress -p$(kubectl get secret --namespace wordpress mariadb-passwords -o jsonpath="{.data.mariadb-password}" | base64 -d) wordpress
