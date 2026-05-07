@@ -31,16 +31,19 @@ persistence:
 ## 4. Configuration Redis Object Cache & S3 (via wp-config.php)
 wordpressExtraConfigContent: |
   // Configuration Redis Sentinel
-  define( 'WP_REDIS_SENTINEL', 'redis-ha' );
+  define( 'WP_REDIS_SENTINEL', 'redis-ha' ); // Le nom du service K8s
+  define( 'WP_REDIS_SENTINEL_MASTER', 'redis-master' ); // Nom du master configuré dans Sentinel (souvent 'mymaster')
   define( 'WP_REDIS_PASSWORD', 'R€disP@ss123' );
-  define( 'WP_REDIS_SENTINEL_MASTER', 'redis-master' );
-
+  define( 'WP_REDIS_SCHEME', 'tcp' );
+  define( 'WP_REDIS_DATABASE', 0 );
+  
   // Configuration S3 pour MinIO
+  // 'endpoint' => 'http://minio-ha.wordpress.svc.cluster.local:9000',
   define( 'AS3CF_SETTINGS', serialize( array(
     'provider' => 'custom',
     'access-key-id' => 'admin-ha',
     'secret-access-key' => 'mini0_1234',
-    'endpoint' => 'http://minio-ha.wordpress.svc.cluster.local:9000',
+    'endpoint' => 'http://minio-ha:9000',    
     'force-path-style' => true,
     'region' => 'us-east-1',
     'signature' => 'v4' // Force la signature v4, nécessaire pour MinIO
@@ -56,13 +59,18 @@ service:
 ingress:
   enabled: true
   hostname: wordpress.local # À adapter à votre DNS
-
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: "64m"
+    
 ## Activer les logs détaillés pour le diagnostic
 extraEnvVars:
   - name: BITNAMI_DEBUG
     value: "true"
   - name: WORDPRESS_SKIP_BOOTSTRAP # <-- Ajouté ici pour éviter l'erreur de l'ID utilisateur
     value: "yes"
+  - name: WORDPRESS_DATA_TO_PERSIST
+    value: "wp-content"    
 
 ## Forcer les permissions sur le volume pour éviter les erreurs d'écriture
 volumePermissions:
