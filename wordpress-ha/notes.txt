@@ -110,6 +110,8 @@ helm upgrade --install wordpress-ha oci://registry-1.docker.io/bitnamicharts/wor
   --namespace wordpress \
   -f wordpress-values.yaml
 
+kubectl exec -it $(kubectl get pods -l app.kubernetes.io/name=wordpress -n wordpress -o jsonpath='{.items[0].metadata.name}') -n wordpress -- cat /bitnami/wordpress/wp-config.php
+
 >> UPDATE user PASSWORD
 kubectl run mariadb-client --rm --tty -i --restart='Never' --namespace wordpress \
   --image docker.io/bitnamilegacy/mariadb-galera:11.4.5-debian-12-r1 \
