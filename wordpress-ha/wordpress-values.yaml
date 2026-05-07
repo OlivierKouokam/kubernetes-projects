@@ -13,6 +13,10 @@ externalDatabase:
   existingSecret: "mariadb-passwords"
   existingSecretPasswordKey: "mariadb-password"
 
+## Définir le mot de passe admin à l'avance
+wordpressPassword: "us€rP@ss"
+wordpressUsername: "user"
+
 mariadb:
   enabled: false
 
