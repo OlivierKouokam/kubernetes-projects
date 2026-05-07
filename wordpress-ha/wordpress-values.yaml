@@ -39,12 +39,13 @@ wordpressExtraConfigContent: |
   
   // Configuration S3 pour MinIO
   // 'endpoint' => 'http://minio-ha.wordpress.svc.cluster.local:9000',
+  // 'force-path-style' => true,
   define( 'AS3CF_SETTINGS', serialize( array(
     'provider' => 'custom',
     'access-key-id' => 'admin-ha',
     'secret-access-key' => 'mini0_1234',
-    'endpoint' => 'http://minio-ha:9000',    
-    'force-path-style' => true,
+    'endpoint' => 'http://minio-ha:9000',
+    'use-path-style-endpoint' => true
     'region' => 'us-east-1',
     'signature' => 'v4' // Force la signature v4, nécessaire pour MinIO
   ) ) );
