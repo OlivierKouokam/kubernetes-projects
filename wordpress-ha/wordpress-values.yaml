@@ -161,3 +161,18 @@ volumePermissions:
     registry: docker.io
     repository: bitnamilegacy/os-shell
     tag: "12-debian-12-r50"
+
+
+#############################++++++++++++++++++++++++++++++#################################
+#############################++++++++++++++++++++++++++++++#################################
+# Utilisation des paramètres natifs du chart Bitnami
+wordpressUsername: "user"
+wordpressEmail: "user@example.com"
+wordpressPassword: "votre-mot-de-passe" # Le chart créera automatiquement le secret avec cette valeur
+
+# Alternative : Injection directe via les variables d'environnement
+extraEnvVars:
+  - name: WORDPRESS_USERNAME
+    value: "user"
+  - name: WORDPRESS_EMAIL
+    value: "user@example.com"
