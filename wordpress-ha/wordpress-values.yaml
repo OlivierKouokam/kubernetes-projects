@@ -45,7 +45,7 @@ wordpressExtraConfigContent: |
     'access-key-id' => 'admin-ha',
     'secret-access-key' => 'mini0_1234',
     'endpoint' => 'http://minio-ha:9000',
-    'use-path-style-endpoint' => true
+    'use-path-style-endpoint' => true,
     'region' => 'us-east-1',
     'signature' => 'v4' // Force la signature v4, nécessaire pour MinIO
   ) ) );
@@ -68,8 +68,8 @@ ingress:
 extraEnvVars:
   - name: BITNAMI_DEBUG
     value: "true"
-  - name: WORDPRESS_SKIP_BOOTSTRAP # <-- Ajouté ici pour éviter l'erreur de l'ID utilisateur
-    value: "yes"
+  # - name: WORDPRESS_SKIP_BOOTSTRAP # <-- Ajouté ici pour éviter l'erreur de l'ID utilisateur
+  #   value: "yes"
   - name: WORDPRESS_DATA_TO_PERSIST
     value: "wp-content"    
 
