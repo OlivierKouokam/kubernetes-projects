@@ -62,6 +62,8 @@ helm install redis-ha oci://registry-1.docker.io/bitnamicharts/redis \
   --namespace wordpress \
   -f redis-values.yaml
 
+kubectl exec -it <nom-du-pod-redis-0> -n <namespace> -- redis-cli -p 26379 sentinel masters
+
 Phase C — MinIO
 
 helm install minio-ha oci://registry-1.docker.io/bitnamicharts/minio \
