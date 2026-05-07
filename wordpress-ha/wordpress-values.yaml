@@ -22,7 +22,7 @@ mariadb:
 
 ## 2. Connexion Redis Sentinel (Service existant)
 allowRemoteConnections: true
-wordpressSkipInstall: true # <-- Modifié ici pour ignorer l'installation
+wordpressSkipInstall: false # <-- Modifié ici pour ignorer l'installation
 
 ## 3. Persistance RWX via Longhorn
 persistence:
