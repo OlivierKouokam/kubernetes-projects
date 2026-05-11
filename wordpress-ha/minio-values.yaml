@@ -11,7 +11,7 @@ replicas: 4
 ## Désactiver le déploiement de la console séparée
 # On préfère l'interface intégrée au serveur pour éviter les problèmes de routage
 console:
-  enabled: false
+  enabled: true
 
 ## Activer l'interface utilisateur intégrée
 api:
