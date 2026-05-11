@@ -1,67 +1,60 @@
-## Désactiver le déploiement de la console séparée (qui pose problème)
+## Configuration de l'image (Legacy pour la compatibilité)
+image:
+  repository: bitnamilegacy/minio
+  tag: 2024.11.7-debian-12-r0
+
+## Mode Haute Disponibilité (Distributed)
+# MinIO nécessite 4 nœuds pour l'Erasure Coding (résilience des données)
+mode: distributed
+replicas: 4
+
+## Désactiver le déploiement de la console séparée
+# On préfère l'interface intégrée au serveur pour éviter les problèmes de routage
 console:
   enabled: false
 
-## Activer l'interface utilisateur intégrée au serveur MinIO
+## Activer l'interface utilisateur intégrée
 api:
   browser: "on"
-
-## Image Bitnami
-image:
-  repository: bitnamilegacy/minio
-  tag: 2024.11.7-debian-12-r0  # Exemple de version stable
-
-## Forcer le port de la console interne
-extraArgs:
-  - server
-  - --console-address
-  - :9001
-
-#extraEnvVars:
-#  - name: MINIO_BROWSER_REDIRECT_PORT
-#    value: "9001"
-#  - name: MINIO_SERVER_URL
-#    value: "http://minio-ha.wordpress.svc.cluster.local:9000"
-#  - name: MINIO_BROWSER
-#    value: "on"
-## Utilise les variables d'environnement natives de l'image
-extraEnvVars:
-  - name: MINIO_API_PORT
-    value: "9000"
-  - name: MINIO_CONSOLE_PORT
-    value: "9001"
-  - name: MINIO_BROWSER
-    value: "on"
-
-# MinIO nécessite au moins 4 réplicas pour l'Erasure Coding
-mode: distributed
-replicas: 4
 
 ## Authentification
 auth:
   rootUser: "admin-ha"
-  rootPassword: "mini0_1234" # À changer !
+  rootPassword: "mini0_1234"
 
 ## Persistance via Longhorn
 persistence:
   enabled: true
   storageClass: "longhorn"
-  size: 1Gi  # Ajuste selon tes besoins en médias WordPress
+  size: 5Gi  # 5Gi minimum recommandé pour éviter les erreurs de quorum disque
 
-## Anti-affinité
-# Comme tu as 3 nœuds pour 4 pods, on ne peut pas mettre "hard" (sinon le 4ème pod ne démarrera pas).
-# On utilise "soft" pour répartir au mieux.
+## Anti-affinité SOFT
+# Obligatoire : tu as 4 pods mais seulement 3 nœuds physiques.
+# Cela permet à 2 pods de cohabiter sur une même VM.
 podAntiAffinityPreset: soft
 
-## Service & Console
-# La console est l'interface web de MinIO (port 9001)
+## Configuration du Service (Accès externe via NodePort)
 service:
-  type: ClusterIP
+  type: NodePort
   ports:
     api: 9000
     console: 9001
+  nodePorts:
+    api: 30090
+    console: 30091
 
-## Ressources (Optionnel mais recommandé pour éviter l'OOM Kill)
+## Variables d'environnement pour stabiliser l'URL de l'interface
+extraEnvVars:
+  - name: MINIO_SERVER_URL
+    value: "http://192.168.90.10:30090"
+  - name: MINIO_BROWSER_REDIRECT_URL
+    value: "http://192.168.90.10:30091"
+  - name: MINIO_API_PORT
+    value: "9000"
+  - name: MINIO_CONSOLE_PORT
+    value: "9001"
+
+## Ressources (Pour éviter que MinIO ne consomme toute la RAM des VMs)
 resources:
   requests:
     memory: 256Mi
