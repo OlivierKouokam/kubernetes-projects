@@ -38,9 +38,7 @@ replica:
     size: 2Gi
 
 # Sécurité : Utilisation de ton secret existant (optionnel mais recommandé)
-existingSecret: "redis-passwords"
 auth:
-  usePasswordFiles: true
   existingSecret: "redis-passwords"
   existingSecretPasswordKey: "redis-password"  
 
