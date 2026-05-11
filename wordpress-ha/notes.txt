@@ -58,6 +58,8 @@ SELECT * FROM k8s_test;
 
 B.2 — Redis Sentinel
 
+kubectl apply -f mariadb-secret.yaml
+
 helm install redis-ha oci://registry-1.docker.io/bitnamicharts/redis \
   --namespace wordpress \
   -f redis-values.yaml
