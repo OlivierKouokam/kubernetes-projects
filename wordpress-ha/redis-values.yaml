@@ -46,9 +46,3 @@ auth:
 commonConfiguration: |
   # On laisse vide ou on ajoute des configs standards
   # Cela va écraser la tentative de chargement automatique de modules inexistants
-
-## Alternativement, force les modules à vide dans les paramètres du chart
-master:
-  extraFlags: []
-replica:
-  extraFlags: []
