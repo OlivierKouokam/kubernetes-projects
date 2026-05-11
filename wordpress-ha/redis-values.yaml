@@ -18,7 +18,10 @@ sentinel:
   image:
     repository: bitnamilegacy/redis-sentinel
     tag: 7.2.4-debian-12-r11
-
+  auth:
+    existingSecret: "redis-passwords"
+    existingSecretPasswordKey: "redis-sentinel-password"
+    
 ## Anti-affinité HARD (1 pod par VM obligatoirement)
 podAntiAffinityPreset: hard
 
@@ -38,6 +41,8 @@ replica:
 existingSecret: "redis-passwords"
 auth:
   usePasswordFiles: true
+  existingSecret: "redis-passwords"
+  existingSecretPasswordKey: "redis-password"  
 
 ## Désactiver le chargement des modules qui plantent sur l'image legacy
 commonConfiguration: |
