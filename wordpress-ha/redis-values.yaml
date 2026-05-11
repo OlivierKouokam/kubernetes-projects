@@ -34,10 +34,10 @@ replica:
     storageClass: "longhorn"
     size: 2Gi
 
-## Sécurité : Utilisation de ton secret existant (optionnel mais recommandé)
-# existingSecret: "redis-passwords"
-# auth:
-#   usePasswordFiles: true
+# Sécurité : Utilisation de ton secret existant (optionnel mais recommandé)
+existingSecret: "redis-passwords"
+auth:
+  usePasswordFiles: true
 
 ## Désactiver le chargement des modules qui plantent sur l'image legacy
 commonConfiguration: |
