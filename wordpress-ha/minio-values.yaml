@@ -45,6 +45,8 @@ service:
 
 ## Variables d'environnement pour stabiliser l'URL de l'interface
 extraEnvVars:
+  - name: MINIO_OPTS
+    value: "--console-address :9001"
   - name: MINIO_SERVER_URL
     value: "http://192.168.90.10:30090"
   - name: MINIO_BROWSER_REDIRECT_URL
