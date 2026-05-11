@@ -1,0 +1,190 @@
+# ─────────────────────────────────────────────────────────────
+# WordPress Bitnami — values.yaml
+# Stack : MariaDB externe + Redis Sentinel + MinIO + Longhorn RWX
+# ─────────────────────────────────────────────────────────────
+
+## ── Général ──────────────────────────────────────────────────
+wordpressUsername: admin
+wordpressPassword: ""  # via existingSecret
+wordpressEmail: admin@example.com
+wordpressBlogName: "Mon Blog K8s"
+wordpressTablePrefix: wp_
+
+existingSecret: wordpress-secrets
+
+## ── Image ────────────────────────────────────────────────────
+image:
+  registry: docker.io
+  repository: bitnamilegacy/wordpress
+  tag: 6.8.2-debian-12-r5
+  pullPolicy: IfNotPresent
+
+## ── Réplication ──────────────────────────────────────────────
+replicaCount: 3  # scalable librement
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+## ── MariaDB EXTERNE (Bitnami MariaDB déjà déployé) ───────────
+mariadb:
+  enabled: false  # On n'installe PAS MariaDB avec ce chart
+
+externalDatabase:
+  host: mariadb.wordpress.svc.cluster.local  # adapter
+  port: 3306
+  user: wordpress
+  password: ""  # lu depuis existingSecret
+  database: wordpress
+  existingSecret: wordpress-secrets
+  existingSecretPasswordKey: mariadb-password
+
+## ── Redis Sentinel ────────────────────────────────────────────
+# Le chart Bitnami WordPress intègre Redis via wordpressExtraEnvVars
+# (le plugin Redis Object Cache se configure via wp-config.php)
+wordpressExtraEnvVars:
+  # Sentinel : liste des noeuds sentinel (au moins 1 suffit pour la découverte)
+  - name: WP_REDIS_CLIENT
+    value: "predis"
+  - name: WP_REDIS_SCHEME
+    value: "tcp"
+  - name: WP_REDIS_SENTINEL
+    value: "redis-redis-sentinel.redis.svc.cluster.local:26379"
+  - name: WP_REDIS_SENTINEL_SERVICE
+    value: "mymaster"  # nom du groupe sentinel Bitnami par défaut
+  - name: WP_REDIS_DATABASE
+    value: "0"
+  - name: WP_REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: wordpress-secrets
+        key: redis-password
+  - name: WP_REDIS_TIMEOUT
+    value: "1"
+  - name: WP_REDIS_READ_TIMEOUT
+    value: "1"
+
+  # MinIO / S3 (WP Offload Media Lite — variables d'env pour configuration)
+  - name: AS3CF_PROVIDER
+    value: "storage"  # "storage" = custom S3-compatible endpoint
+  - name: AS3CF_BUCKET
+    value: "wordpress-media"
+  - name: AS3CF_REGION
+    value: "us-east-1"  # MinIO ignore cette valeur mais elle est requise
+  - name: AS3CF_CUSTOM_DOMAIN
+    value: "minio.wordpress.svc.cluster.local:9000"  # adapter si besoin
+
+  # Désactive WP-Cron (utiliser un CronJob K8s à la place)
+  - name: DISABLE_WP_CRON
+    value: "yes"
+
+## ── wp-config.php extra (injecté par Bitnami) ────────────────
+wordpressExtraConfigContent: |
+  // ── Redis Object Cache ────────────────────────────────────
+  define('WP_CACHE', true);
+  define('WP_REDIS_CLIENT', 'predis');
+  define('WP_REDIS_SENTINEL', getenv('WP_REDIS_SENTINEL'));
+  define('WP_REDIS_SENTINEL_SERVICE', getenv('WP_REDIS_SENTINEL_SERVICE'));
+  define('WP_REDIS_PASSWORD', getenv('WP_REDIS_PASSWORD'));
+  define('WP_REDIS_DATABASE', 0);
+  define('WP_REDIS_TIMEOUT', 1);
+  define('WP_REDIS_READ_TIMEOUT', 1);
+
+  // ── WP Offload Media (MinIO/S3) ───────────────────────────
+  define('AS3CF_SETTINGS', serialize(array(
+    'provider'             => 'storage',
+    'access-key-id'        => getenv('MINIO_ACCESS_KEY'),
+    'secret-access-key'    => getenv('MINIO_SECRET_KEY'),
+    'bucket'               => getenv('AS3CF_BUCKET'),
+    'region'               => getenv('AS3CF_REGION'),
+    'use-server-roles'     => false,
+    'endpoint'             => 'http://minio.wordpress.svc.cluster.local:9000',
+    'force-path-style'     => true,   // OBLIGATOIRE avec MinIO
+    'copy-to-s3'           => true,
+    'serve-from-s3'        => true,
+    'remove-local-file'    => true,   // supprime l'upload local après envoi S3
+    'delivery-provider'    => 'storage',
+    'enable-delivery-domain' => false,
+  )));
+
+  // ── Performance ───────────────────────────────────────────
+  define('DISABLE_WP_CRON', true);
+  define('WP_POST_REVISIONS', 3);
+
+## ── Variables MinIO pour wp-config (injectées depuis Secret) ─
+extraEnvVarsSecret: ""
+extraEnvVars:
+  - name: MINIO_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: wordpress-secrets
+        key: minio-access-key
+  - name: MINIO_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: wordpress-secrets
+        key: minio-secret-key
+
+## ── Persistence (RWX Longhorn) ────────────────────────────────
+persistence:
+  enabled: true
+  storageClass: longhorn  # Vérifie le nom exact : kubectl get sc
+  accessModes:
+    - ReadWriteMany   # RWX — Longhorn le supporte nativement
+  size: 5Gi
+  annotations:
+    helm.sh/resource-policy: keep
+
+## ── Service ──────────────────────────────────────────────────
+service:
+  type: ClusterIP  # utiliser un Ingress devant
+  port: 80
+  httpsPort: 443
+
+## ── Ingress ──────────────────────────────────────────────────
+ingress:
+  enabled: true
+  ingressClassName: nginx  # adapter à ton ingress controller
+  hostname: wordpress.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "64m"
+  tls: false  # true + cert-manager si TLS souhaité
+
+## ── Resources ────────────────────────────────────────────────
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+## ── HPA (Horizontal Pod Autoscaler) ──────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPU: 70
+  targetMemory: 80
+
+## ── Anti-affinité (spread sur les nodes) ─────────────────────
+podAntiAffinityPreset: hard  # "hard" pour forcer 1 pod/node ou soft
+
+## ── Probes ────────────────────────────────────────────────────
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 120
+  periodSeconds: 10
+  failureThreshold: 6
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  failureThreshold: 6
+
+## ── Metrics / Prometheus ─────────────────────────────────────
+metrics:
+  enabled: false  # true si tu as Prometheus Operator
