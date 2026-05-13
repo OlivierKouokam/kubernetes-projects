@@ -33,7 +33,7 @@ mariadb:
   enabled: false  # On n'installe PAS MariaDB avec ce chart
 
 externalDatabase:
-  host: mariadb.wordpress.svc.cluster.local  # adapter
+  host: mariadb-galera.wordpress.svc.cluster.local  # adapter
   port: 3306
   user: wordpress
   password: ""  # lu depuis existingSecret
@@ -51,7 +51,7 @@ wordpressExtraEnvVars:
   - name: WP_REDIS_SCHEME
     value: "tcp"
   - name: WP_REDIS_SENTINEL
-    value: "redis-redis-sentinel.redis.svc.cluster.local:26379"
+    value: "redis-ha.wordpress.svc.cluster.local:26379"
   - name: WP_REDIS_SENTINEL_SERVICE
     value: "mymaster"  # nom du groupe sentinel Bitnami par défaut
   - name: WP_REDIS_DATABASE
@@ -74,7 +74,7 @@ wordpressExtraEnvVars:
   - name: AS3CF_REGION
     value: "us-east-1"  # MinIO ignore cette valeur mais elle est requise
   - name: AS3CF_CUSTOM_DOMAIN
-    value: "minio.wordpress.svc.cluster.local:9000"  # adapter si besoin
+    value: ""  # adapter si besoin
 
   # Désactive WP-Cron (utiliser un CronJob K8s à la place)
   - name: DISABLE_WP_CRON
