@@ -46,8 +46,8 @@ externalDatabase:
 # (le plugin Redis Object Cache se configure via wp-config.php)
 wordpressExtraEnvVars:
   # Sentinel : liste des noeuds sentinel (au moins 1 suffit pour la découverte)
-  - name: WP_REDIS_CLIENT
-    value: "predis"
+  # - name: WP_REDIS_CLIENT
+  #   value: "predis"
   - name: WP_REDIS_SCHEME
     value: "tcp"
   - name: WP_REDIS_SENTINEL
@@ -100,7 +100,7 @@ wordpressExtraConfigContent: |
     'bucket'               => getenv('AS3CF_BUCKET'),
     'region'               => getenv('AS3CF_REGION'),
     'use-server-roles'     => false,
-    'endpoint'             => 'http://minio.wordpress.svc.cluster.local:9000',
+    'endpoint'             => 'http://minio-ha.wordpress.svc.cluster.local:9000',
     'force-path-style'     => true,   // OBLIGATOIRE avec MinIO
     'copy-to-s3'           => true,
     'serve-from-s3'        => true,
