@@ -78,6 +78,10 @@ helm install minio-ha oci://registry-1.docker.io/bitnamicharts/minio \
   -f minio-values.yaml
 
 >> TEST MINIO HA <<
+
+export ROOT_USER=$(kubectl get secret --namespace wordpress minio-ha -o jsonpath="{.data.root-user}" | base64 -d)
+export ROOT_PASSWORD=$(kubectl get secret --namespace wordpress minio-ha -o jsonpath="{.data.root-password}" | base64 -d)
+
 kubectl run --namespace wordpress minio-ha-client \
      --rm --tty -i --restart='Never' \
      --env MINIO_SERVER_ROOT_USER=$ROOT_USER \
