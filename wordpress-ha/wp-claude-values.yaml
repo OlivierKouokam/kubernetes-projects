@@ -173,17 +173,17 @@ resources:
 podAntiAffinityPreset: hard  # "hard" pour forcer 1 pod/node ou soft
 
 ## ── Probes ────────────────────────────────────────────────────
-livenessProbe:
-  enabled: true
-  initialDelaySeconds: 120
-  periodSeconds: 10
-  failureThreshold: 6
+# livenessProbe:
+#   enabled: true
+#   initialDelaySeconds: 120
+#   periodSeconds: 10
+#   failureThreshold: 6
 
-readinessProbe:
-  enabled: true
-  initialDelaySeconds: 30
-  periodSeconds: 5
-  failureThreshold: 6
+# readinessProbe:
+#   enabled: true
+#   initialDelaySeconds: 30
+#   periodSeconds: 5
+#   failureThreshold: 6
 
 ## ── Metrics / Prometheus ─────────────────────────────────────
 metrics:
