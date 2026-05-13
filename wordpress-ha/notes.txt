@@ -66,6 +66,11 @@ helm install redis-ha oci://registry-1.docker.io/bitnamicharts/redis \
 
 kubectl exec -it <nom-du-pod-redis-0> -n <namespace> -- redis-cli -p 26379 sentinel masters
 
+kubectl -n wordpress exec -it redis-ha-node-0 -c redis -- redis-cli -a 'R€disP@ss123' INFO replication
+
+kubectl -n wordpress exec -it redis-ha-node-0 -c sentinel \
+-- redis-cli -p 26379 -a 'R€disP@ss123' SENTINEL get-master-addr-by-name redis-master
+
 Phase C — MinIO
 
 helm install minio-ha oci://registry-1.docker.io/bitnamicharts/minio \
