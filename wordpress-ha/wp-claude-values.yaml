@@ -20,7 +20,7 @@ image:
   pullPolicy: IfNotPresent
 
 ## ── Réplication ──────────────────────────────────────────────
-replicaCount: 3  # scalable librement
+replicaCount: 1  # scalable librement
 
 updateStrategy:
   type: RollingUpdate
