@@ -46,8 +46,8 @@ externalDatabase:
 # (le plugin Redis Object Cache se configure via wp-config.php)
 wordpressExtraEnvVars:
   # Sentinel : liste des noeuds sentinel (au moins 1 suffit pour la découverte)
-  # - name: WP_REDIS_CLIENT
-  #   value: "predis"
+  - name: WP_REDIS_CLIENT
+    value: "predis"
   - name: WP_REDIS_SCHEME
     value: "tcp"
   - name: WP_REDIS_SENTINEL
