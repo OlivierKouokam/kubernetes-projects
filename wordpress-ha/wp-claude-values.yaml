@@ -162,12 +162,12 @@ resources:
     cpu: 500m
 
 ## ── HPA (Horizontal Pod Autoscaler) ──────────────────────────
-autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 8
-  targetCPU: 70
-  targetMemory: 80
+# autoscaling:
+#   enabled: true
+#   minReplicas: 3
+#   maxReplicas: 8
+#   targetCPU: 70
+#   targetMemory: 80
 
 ## ── Anti-affinité (spread sur les nodes) ─────────────────────
 podAntiAffinityPreset: hard  # "hard" pour forcer 1 pod/node ou soft
