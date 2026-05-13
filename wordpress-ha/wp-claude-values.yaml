@@ -114,7 +114,7 @@ wordpressExtraConfigContent: |
   define('WP_POST_REVISIONS', 3);
 
 ## ── Variables MinIO pour wp-config (injectées depuis Secret) ─
-extraEnvVarsSecret: ""
+# extraEnvVarsSecret: "" //annuler au lieu de laisser vide
 extraEnvVars:
   - name: MINIO_ACCESS_KEY
     valueFrom:
