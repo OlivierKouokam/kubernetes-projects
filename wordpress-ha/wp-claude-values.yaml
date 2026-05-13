@@ -53,7 +53,7 @@ wordpressExtraEnvVars:
   - name: WP_REDIS_SENTINEL
     value: "redis-ha.wordpress.svc.cluster.local:26379"
   - name: WP_REDIS_SENTINEL_SERVICE
-    value: "mymaster"  # nom du groupe sentinel Bitnami par défaut
+    value: "redis-master"  # nom du groupe sentinel Bitnami par défaut
   - name: WP_REDIS_DATABASE
     value: "0"
   - name: WP_REDIS_PASSWORD
