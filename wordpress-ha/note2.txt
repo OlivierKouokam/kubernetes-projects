@@ -1,0 +1,15 @@
+echo "=== mariadb-passwords ==="
+echo -n "mariadb-galera-mariabackup-password=" && kubectl -n wordpress get secret mariadb-passwords -o jsonpath='{.data.mariadb-galera-mariabackup-password}' | base64 -d && echo
+echo -n "mariadb-password=" && kubectl -n wordpress get secret mariadb-passwords -o jsonpath='{.data.mariadb-password}' | base64 -d && echo
+echo -n "mariadb-root-password=" && kubectl -n wordpress get secret mariadb-passwords -o jsonpath='{.data.mariadb-root-password}' | base64 -d && echo
+echo
+
+echo "=== redis-passwords ==="
+echo -n "redis-password=" && kubectl -n wordpress get secret redis-passwords -o jsonpath='{.data.redis-password}' | base64 -d && echo
+echo -n "redis-sentinel-password=" && kubectl -n wordpress get secret redis-passwords -o jsonpath='{.data.redis-sentinel-password}' | base64 -d && echo
+echo
+
+echo "=== minio-ha ==="
+echo -n "root-user=" && kubectl -n wordpress get secret minio-ha -o jsonpath='{.data.root-user}' | base64 -d && echo
+echo -n "root-password=" && kubectl -n wordpress get secret minio-ha -o jsonpath='{.data.root-password}' | base64 -d && echo
+echo
