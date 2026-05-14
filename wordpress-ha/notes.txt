@@ -96,6 +96,10 @@ kubectl -n wordpress exec -it redis-ha-node-0 -c sentinel \
 kubectl exec -it redis-ha-node-0 -n wordpress -c sentinel -- redis-cli -p 26379 -a 'R€disP@ss123' SENTINEL get-master-addr-by-name redis-master
 kubectl delete po <nom-du-pod-redis-master> -n wordpress ## Tuer le Master actuel
 kubectl exec -it <nom-du-pod-redis-slave> -n wordpress -c sentinel -- redis-cli -p 26379 -a 'R€disP@ss123' SENTINEL get-master-addr-by-name redis-master
+## Test d'écriture
+kubectl exec -it <nom-du-pod-redis-master> -n wordpress -c redis -- redis-cli -a 'R€disP@ss123' SET test_ha "Redis_is_Alive"
+## Test de Lecture
+kubectl exec -it <nom-du-pod-redis-slave> -n wordpress -c redis -- redis-cli -a 'R€disP@ss123' GET test_ha
 
 Phase C — MinIO
 
