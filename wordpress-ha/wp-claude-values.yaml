@@ -154,12 +154,12 @@ ingress:
 
 ## ── Resources ────────────────────────────────────────────────
 resources:
-  requests:
-    memory: 256Mi
-    cpu: 100m
   limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 300m
     memory: 512Mi
-    cpu: 500m
 
 ## ── HPA (Horizontal Pod Autoscaler) ──────────────────────────
 # autoscaling:
