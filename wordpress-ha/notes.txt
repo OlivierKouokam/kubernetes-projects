@@ -161,6 +161,8 @@ helm upgrade --install wordpress-ha oci://registry-1.docker.io/bitnamicharts/wor
   --create-namespace \
   -f wordpress-values.yaml
 
+kubectl -n wordpress get sts,deploy,po,svc,pvc
+
 kubectl exec -it $(kubectl get pods -l app.kubernetes.io/name=wordpress -n wordpress -o jsonpath='{.items[0].metadata.name}') -n wordpress -- cat /bitnami/wordpress/wp-config.php
 
 >> UPDATE user PASSWORD
