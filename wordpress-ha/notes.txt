@@ -48,12 +48,13 @@ kubectl create ns wordpress
 B.1 — MariaDB Galera
 
 kubectl apply -f mariadb-secret.yaml
+kubectl get secrets -n wordpress
 
 helm install mariadb-galera oci://registry-1.docker.io/bitnamicharts/mariadb-galera \
   --namespace wordpress \
   -f mariadb-values.yaml
 
-kubectl -n wordpress get sts,po,svc
+kubectl get sts,po,svc -n wordpress
 
 >> TEST GALERA CLUSTER
 kubectl run mariadb-client --rm --tty -i --restart='Never' --namespace wordpress \
@@ -77,6 +78,7 @@ SELECT * FROM k8s_test;
 B.2 — Redis Sentinel
 
 kubectl apply -f redis-secret.yaml
+kubectl get secrets -n wordpress
 
 helm install redis-ha oci://registry-1.docker.io/bitnamicharts/redis \
   --namespace wordpress \
@@ -136,6 +138,7 @@ D.2 — Configuration du fichier wordpress-values.yaml
 D.3 — Installation de WordPress
 
 kubectl apply -f wp-claude-secrets.yaml
+kubectl get secrets -n wordpress
 
 helm upgrade --install wordpress-ha oci://registry-1.docker.io/bitnamicharts/wordpress \
   --version 26.0.0 \
