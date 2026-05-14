@@ -43,6 +43,8 @@ kubectl port-forward -n longhorn-system svc/longhorn-frontend 8080:80 --address 
 
 Phase B — Les Services de Données (HA & Quorum)
 
+kubectl create ns wordpress
+
 B.1 — MariaDB Galera
 
 kubectl apply -f mariadb-secret.yaml
