@@ -130,7 +130,7 @@ mc admin info myminio
 i- Créer un bucket : mc mb myminio/test-bucket
 ii- Uploader un fichier : echo "minio test data" > test.txt && mc cp test.txt myminio/test-bucket/
 iii- Lister : mc ls myminio/test-bucket/
-
+iv- Créer le bucket de WordPress: mc mb myminio/wordpress-media
 # On cible le pod 0 directement
 kubectl port-forward -n wordpress pod/minio-ha-0 9001:9001 --address 0.0.0.0
 
