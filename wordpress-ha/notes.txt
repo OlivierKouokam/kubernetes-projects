@@ -53,6 +53,8 @@ helm install mariadb-galera oci://registry-1.docker.io/bitnamicharts/mariadb-gal
   --namespace wordpress \
   -f mariadb-values.yaml
 
+kubectl -n wordpress get sts,po,svc
+
 >> TEST GALERA CLUSTER
 kubectl run mariadb-client --rm --tty -i --restart='Never' --namespace wordpress \
   --image docker.io/bitnamilegacy/mariadb-galera:11.4.5-debian-12-r1 \
