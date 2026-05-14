@@ -1,3 +1,17 @@
+git clone https://github.com/OlivierKouokam/kubernetes-projects.git
+
+Phase 0 — Installation de MetalLB et NGINX Ingress Controller
+
+cd kubernetes-projects
+
+# install baremetal loadbalancer : metallb and nginx ingress controller
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.9/config/manifests/metallb-native.yaml
+kubectl get all -n metallb-system
+kubectl apply -f ipaddresspool.yml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.7.0/deploy/static/provider/cloud/deploy.yaml
+
+kubectl get svc -n ingress-nginx -o wide
+
 Phase A — La Fondation : Stockage Répliqué (Longhorn)
 
 sudo apt install -y open-iscsi nfs-common
