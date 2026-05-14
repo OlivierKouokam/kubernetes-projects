@@ -162,6 +162,7 @@ Ajouter les entrées sur chaque nœud pour la résolution DNS locale :
 sudo tee -a /etc/hosts <<EOF
 192.168.90.10 controlplane
 192.168.90.11 node1
+192.168.90.12 node2
 EOF
 ```
 
