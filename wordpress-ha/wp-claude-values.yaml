@@ -189,5 +189,5 @@ podAntiAffinityPreset: hard  # "hard" pour forcer 1 pod/node ou soft
 metrics:
   enabled: false  # true si tu as Prometheus Operator
 
-diagnosticMode:
-  enabled: true
+# diagnosticMode:
+#   enabled: true
