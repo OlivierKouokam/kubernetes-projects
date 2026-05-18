@@ -83,7 +83,7 @@ wordpressExtraEnvVars:
 ## ── wp-config.php extra (injecté par Bitnami) ────────────────
 wordpressExtraConfigContent: |
   // ── Redis Object Cache ────────────────────────────────────
-  define('WP_CACHE', true);
+  // define('WP_CACHE', true);
   define('WP_REDIS_CLIENT', 'predis');
   define('WP_REDIS_SENTINEL', getenv('WP_REDIS_SENTINEL'));
   define('WP_REDIS_SENTINEL_SERVICE', getenv('WP_REDIS_SENTINEL_SERVICE'));
