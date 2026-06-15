@@ -12,7 +12,7 @@
 
 ```
                     ┌──────────────────────────────┐
-                    │   VIP : 192.168.1.100:6443   │  ← Point d'entrée unique
+                    │   VIP : 192.168.80.100:6443   │  ← Point d'entrée unique
                     │   (Keepalived + HAProxy)      │    pour kubectl & les workers
                     │   hébergé sur les 3 masters   │
                     └──────────┬───────────────────┘
@@ -21,7 +21,7 @@
               ▼                ▼                ▼
    ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
    │    master-1      │ │    master-2      │ │    master-3      │
-   │  192.168.1.10    │ │  192.168.1.11    │ │  192.168.1.12    │
+   │  192.168.80.10    │ │  192.168.80.11    │ │  192.168.80.12    │
    │  4 Go RAM        │ │  4 Go RAM        │ │  4 Go RAM        │
    │  ─────────────   │ │  ─────────────   │ │  ─────────────   │
    │  kube-apiserver  │ │  kube-apiserver  │ │  kube-apiserver  │
@@ -37,7 +37,7 @@
               ▼                                      ▼
    ┌─────────────────┐                   ┌─────────────────┐
    │    worker-1      │                   │    worker-2      │
-   │  192.168.1.20    │                   │  192.168.1.21    │
+   │  192.168.80.20    │                   │  192.168.80.21    │
    │  3 Go RAM        │                   │  3 Go RAM        │
    │  ─────────────   │                   │  ─────────────   │
    │  kubelet         │                   │  kubelet         │
@@ -52,9 +52,9 @@
 et que master-1 tombe, plus rien ne fonctionne — même si master-2 et master-3 sont parfaitement opérationnels.
 
 **La solution — VIP avec Keepalived :**
-La VIP `192.168.1.100` est une IP flottante qui "vit" toujours sur l'un des 3 masters.
+La VIP `192.168.80.100` est une IP flottante qui "vit" toujours sur l'un des 3 masters.
 Keepalived surveille HAProxy et bascule la VIP automatiquement en quelques secondes si le master actif tombe.
-`kubectl` et les workers ne voient qu'une seule IP stable : `192.168.1.100:6443`.
+`kubectl` et les workers ne voient qu'une seule IP stable : `192.168.80.100:6443`.
 
 **Pourquoi sur les masters et pas une VM dédiée ?**
 En production on utilise souvent un LB externe (cloud LB, F5, Nginx dédié...). Ici, pour ce lab,
@@ -76,12 +76,12 @@ Oui, avec des nuances :
 
 | Rôle     | Hostname | IP           | RAM  | CPU |
 |----------|----------|--------------|------|-----|
-| Master 1 | master-1 | 192.168.1.10 | 4 Go | 1   |
-| Master 2 | master-2 | 192.168.1.11 | 4 Go | 1   |
-| Master 3 | master-3 | 192.168.1.12 | 4 Go | 1   |
-| Worker 1 | worker-1 | 192.168.1.20 | 3 Go | 1   |
-| Worker 2 | worker-2 | 192.168.1.21 | 3 Go | 1   |
-| VIP LB   | —        | 192.168.1.100| —    | —   |
+| Master 1 | master-1 | 192.168.80.10 | 4 Go | 1   |
+| Master 2 | master-2 | 192.168.80.11 | 4 Go | 1   |
+| Master 3 | master-3 | 192.168.80.12 | 4 Go | 1   |
+| Worker 1 | worker-1 | 192.168.80.20 | 3 Go | 1   |
+| Worker 2 | worker-2 | 192.168.80.21 | 3 Go | 1   |
+| VIP LB   | —        | 192.168.80.100| —    | —   |
 
 > **OS :** Ubuntu 22.04 LTS  
 > **Container runtime :** containerd  
@@ -109,12 +109,12 @@ Ajouter sur **tous les nœuds** dans `/etc/hosts` :
 sudo tee -a /etc/hosts <<EOF
 
 # Cluster Kubernetes HA
-192.168.1.10   master-1
-192.168.1.11   master-2
-192.168.1.12   master-3
-192.168.1.20   worker-1
-192.168.1.21   worker-2
-192.168.1.100  k8s-vip
+192.168.80.10   master-1
+192.168.80.11   master-2
+192.168.80.12   master-3
+192.168.80.20   worker-1
+192.168.80.21   worker-2
+192.168.80.100  k8s-vip
 EOF
 ```
 
@@ -299,9 +299,9 @@ backend kubernetes-backend
     mode    tcp
     balance roundrobin
     option  tcp-check
-    server  master-1 192.168.1.10:6443 check fall 3 rise 2
-    server  master-2 192.168.1.11:6443 check fall 3 rise 2
-    server  master-3 192.168.1.12:6443 check fall 3 rise 2
+    server  master-1 192.168.80.10:6443 check fall 3 rise 2
+    server  master-2 192.168.80.11:6443 check fall 3 rise 2
+    server  master-3 192.168.80.12:6443 check fall 3 rise 2
 EOF
 ```
 
@@ -332,7 +332,7 @@ vrrp_instance VI_1 {
   }
 
   virtual_ipaddress {
-    192.168.1.100
+    192.168.80.100
   }
 
   track_script {
@@ -369,7 +369,7 @@ vrrp_instance VI_1 {
   }
 
   virtual_ipaddress {
-    192.168.1.100
+    192.168.80.100
   }
 
   track_script {
@@ -406,7 +406,7 @@ vrrp_instance VI_1 {
   }
 
   virtual_ipaddress {
-    192.168.1.100
+    192.168.80.100
   }
 
   track_script {
@@ -425,14 +425,14 @@ sudo systemctl enable --now haproxy keepalived
 ✅ Vérifications :
 ```bash
 # La VIP doit être visible uniquement sur master-1
-ip addr show | grep 192.168.1.100
+ip addr show | grep 192.168.80.100
 
 # HAProxy et Keepalived doivent être actifs sur les 3
 sudo systemctl is-active haproxy keepalived
 
 # Test de connectivité vers la VIP
 # "Connection refused" est normal ici — l'API server n'est pas encore déployé
-nc -vz 192.168.1.100 6443
+nc -vz 192.168.80.100 6443
 ```
 
 ---
@@ -461,7 +461,7 @@ etcd:
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
-  advertiseAddress: 192.168.1.10        # IP propre à master-1
+  advertiseAddress: 192.168.80.10        # IP propre à master-1
   bindPort: 6443
 nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
@@ -561,7 +561,7 @@ sudo kubeadm join k8s-vip:6443 \
   --discovery-token-ca-cert-hash sha256:<hash> \
   --control-plane \
   --certificate-key <certificate-key> \
-  --apiserver-advertise-address 192.168.1.11
+  --apiserver-advertise-address 192.168.80.11
 
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -576,7 +576,7 @@ sudo kubeadm join k8s-vip:6443 \
   --discovery-token-ca-cert-hash sha256:<hash> \
   --control-plane \
   --certificate-key <certificate-key> \
-  --apiserver-advertise-address 192.168.1.12
+  --apiserver-advertise-address 192.168.80.12
 
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -631,11 +631,11 @@ kubectl get nodes -o wide
 
 ```
 NAME       STATUS   ROLES           AGE   VERSION   INTERNAL-IP
-master-1   Ready    control-plane   20m   v1.34.x   192.168.1.10
-master-2   Ready    control-plane   12m   v1.34.x   192.168.1.11
-master-3   Ready    control-plane   8m    v1.34.x   192.168.1.12
-worker-1   Ready    <none>          3m    v1.34.x   192.168.1.20
-worker-2   Ready    <none>          2m    v1.34.x   192.168.1.21
+master-1   Ready    control-plane   20m   v1.34.x   192.168.80.10
+master-2   Ready    control-plane   12m   v1.34.x   192.168.80.11
+master-3   Ready    control-plane   8m    v1.34.x   192.168.80.12
+worker-1   Ready    <none>          3m    v1.34.x   192.168.80.20
+worker-2   Ready    <none>          2m    v1.34.x   192.168.80.21
 ```
 
 🎉 **Le cluster est opérationnel !**
@@ -657,14 +657,14 @@ kubectl get pods -o wide
 
 kubectl get svc demo-app
 # Noter le NodePort (ex: 32000)
-curl http://192.168.1.20:<NodePort>
+curl http://192.168.80.20:<NodePort>
 ```
 
 ### 9.2 — 🎬 DEMO HA : Simuler la perte de master-1
 
 ```bash
 # AVANT : Vérifier que la VIP est sur master-1
-ip addr show | grep 192.168.1.100   # sur master-1
+ip addr show | grep 192.168.80.100   # sur master-1
 
 # Simuler une panne de master-1
 sudo systemctl stop kubelet haproxy keepalived
@@ -674,10 +674,10 @@ kubectl get nodes
 kubectl get pods -A
 
 # La VIP a basculé automatiquement sur master-2
-ip addr show | grep 192.168.1.100   # sur master-2 — doit apparaître maintenant
+ip addr show | grep 192.168.80.100   # sur master-2 — doit apparaître maintenant
 
 # L'application continue de répondre sans interruption
-curl http://192.168.1.20:<NodePort>   # ✅ toujours accessible
+curl http://192.168.80.20:<NodePort>   # ✅ toujours accessible
 
 # Remettre master-1 en ligne
 sudo systemctl start kubelet haproxy keepalived
@@ -716,9 +716,9 @@ ETCDCTL_API=3 etcdctl snapshot status /tmp/etcd-backup-*.db --write-out=table
 ### 10.2 — Accès kubectl depuis une machine externe
 
 ```bash
-scp user@192.168.1.10:/etc/kubernetes/admin.conf ~/.kube/config
+scp user@192.168.80.10:/etc/kubernetes/admin.conf ~/.kube/config
 # Pointer sur la VIP pour profiter de la HA
-sed -i 's/192.168.1.10:6443/192.168.1.100:6443/' ~/.kube/config
+sed -i 's/192.168.80.10:6443/192.168.80.100:6443/' ~/.kube/config
 kubectl get nodes
 ```
 
