@@ -319,7 +319,7 @@ vrrp_script chk_haproxy {
 
 vrrp_instance VI_1 {
   state   MASTER
-  interface eth0          # ⚠️ Adapter à votre interface : ip a pour vérifier
+  interface enp0s8          # ⚠️ Adapter à votre interface : ip a pour vérifier
   virtual_router_id 51
   priority  101           # Le plus élevé = obtient la VIP en premier
   advert_int 1
@@ -356,7 +356,7 @@ vrrp_script chk_haproxy {
 
 vrrp_instance VI_1 {
   state   BACKUP
-  interface eth0          # ⚠️ Adapter à votre interface
+  interface enp0s8          # ⚠️ Adapter à votre interface
   virtual_router_id 51
   priority  100           # Inférieur à master-1
   advert_int 1
@@ -393,7 +393,7 @@ vrrp_script chk_haproxy {
 
 vrrp_instance VI_1 {
   state   BACKUP
-  interface eth0          # ⚠️ Adapter à votre interface
+  interface enp0s8          # ⚠️ Adapter à votre interface
   virtual_router_id 51
   priority  99            # Le plus faible — dernier recours
   advert_int 1
@@ -762,4 +762,4 @@ kubectl logs test-dns && kubectl delete pod test-dns
 ---
 
 > ⚠️ **Avant de commencer :** Vérifier le nom de votre interface réseau avec `ip a`
-> et remplacer `eth0` dans les configs Keepalived. Les IPs sont des exemples — adapter à votre réseau.
+> et remplacer `enp0s8` dans les configs Keepalived. Les IPs sont des exemples — adapter à votre réseau.
