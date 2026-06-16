@@ -469,6 +469,9 @@ EOF
 ### 5.2 — Pré-vérification
 
 ```bash
+sudo systemctl stop haproxy
+# désactiver temporairement haproxy pour libérer le port 6443
+
 sudo kubeadm init phase preflight --config /tmp/kubeadm-config.yaml
 # Doit terminer sans erreur (warnings acceptables)
 ```
