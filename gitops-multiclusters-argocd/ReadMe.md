@@ -1,4 +1,4 @@
-# 📖 README : Guide de Validation du Lab GitOps Multi-Cluster
+# 📖 Guide de Validation du Lab GitOps Multi-Cluster
 
 Ce guide vous permet de tester de bout en bout l'architecture **Hub and Spoke** avec ArgoCD avant de passer à l'enregistrement des vidéos.
 
