@@ -1,1 +1,31 @@
-##
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: web-app-multicluster
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - cluster: k8s-staging
+            url: https://192.168.99.11:6443
+            env: staging
+          - cluster: k8s-prod
+            url: https://192.168.99.12:6443
+            env: prod
+  template:
+    metadata:
+      name: '{{env}}-web-app'
+    spec:
+      project: default
+      source:
+        repoURL: 'https://github.com/<votre-user>/k8s-gitops-infra.git'
+        targetRevision: HEAD
+        path: apps/overlays/{{env}}
+      destination:
+        server: '{{url}}'
+        namespace: default
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
