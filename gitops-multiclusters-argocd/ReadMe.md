@@ -20,6 +20,7 @@ vagrant up
 ### 2. Structure cible du dépôt Git (À créer sur votre GitHub/GitLab)
 Créez un dépôt nommé k8s-gitops-infra avec l'arborescence suivante :
 
+```bash
 ├── apps/
 │   ├── base/
 │   │   ├── deployment.yaml
@@ -34,8 +35,7 @@ Créez un dépôt nommé k8s-gitops-infra avec l'arborescence suivante :
 │           └── patches-replica.yaml
 └── argocd/
     └── applicationset.yaml
-
----
+```
 
 ## 🚀 Étape 03 à 04 : Installation et Accès à ArgoCD (Sur k8s-hub)
 
