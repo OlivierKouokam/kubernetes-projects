@@ -196,3 +196,93 @@ vagrant halt
 # Sauvegarder l'état complet sous VirtualBox via Vagrant
 vagrant snapshot save "lab-module02-gitops-ok"
 ```
+
+## BONUS
+
+Schéma ASCII complet et détaillé représentant à la fois l'infrastructure réseau de vos machines virtuelles et le flux de travail (Workflow) GitOps qu'ArgoCD va orchestrer.
+
+```bash
+=======================================================================================================================
+                         INFRASTRUCTURE RESEAU LAB & WORKFLOW GITOPS (MODULE 02)
+=======================================================================================================================
+
+     +---------------------------------------------------------------------------------------------------+
+     |                                   MACHINE HOTE (VOTRE PC )                                        |
+     |                                                                                                   |
+     |   [ Dépôt Git de l'Infrastructure ] <----------------------------------------+                    |
+     |   URL: github.com/user/k8s-gitops-infra                                      |                    |
+     |   Contient: /apps (Base + Overlays Staging/Prod)                             | (1) Git Push       |
+     |             /argocd (ApplicationSet)                                         |     Modifications  |
+     +------------------------------------------------------------------------------|--------------------+
+                                                                                    |     de code
+                                                                                    |
+  ==================================================================================|==================
+  Réseau Privé Virtuel (VirtualBox Host-Only) : 192.168.99.0/24                     |
+  ==================================================================================|==================
+                                                                                    |
+        +---------------------------------------------------------------------------+
+        |
+        v
+ +----------------------------------------+
+ | VM 01 : k8s-hub                        |
+ | IP : 192.168.99.10                     |
+ | Rôle : Cluster de Management (Hub)     |
+ |----------------------------------------|
+ |                                        |
+ |   +--------------------------------+   |
+ |   | ARGOCD SERVER                  |   |
+ |   | (Cerveau de l'infrastructure)  |   |
+ |   +--------------------------------+   |
+ |       |                 |              |
+ |       | (2) Poll Git    |              |
+ |       |     & Détecte   |              |
+ |       |     les changem.|              |
+ |       |                 |              |
+ |       |                 |              | (3) Déploiement automatique via API K8s (Port 6443)
+ |       |                 |                    Applique l'Overlay "Staging" (1 Réplica)
+ |       |                 +-------------------------------------------------------------+
+ |       |                                                                               |
+ |       | (3) Déploiement automatique via API K8s (Port 6443)                           |
+ |       |     Applique l'Overlay "Production" (3 Réplicas)                              |
+ |       v                                                                               v
+ +-------|--------------------------------+                              +--------------------------------+
+         |                                                               | VM 02 : k8s-staging            |
+         |                                                               | IP : 192.168.99.11             |
+         |                                                               | Rôle : Cluster Target (Spoke)  |
+         |                                                               |--------------------------------|
+         |                                                               |                                |
+         |                                                               |    +-----------------------+   |
+         |                                                               |    |  [ Pod : web-app ]    |   |
+         |                                                               |    |  (Environnement QA)   |   |
+         |                                                               |    +-----------------------+   |
+         |                                                               |                                |
+         v                                                               +--------------------------------+
+ +--------------------------------+
+ | VM 03 : k8s-prod               |
+ | IP : 192.168.99.12             |
+ | Rôle : Cluster Target (Spoke)  |
+ |--------------------------------|
+ |                                |
+ |    +-----------------------+   |
+ |    |  [ Pod : web-app ]    |   |
+ |    |  [ Pod : web-app ]    |   | <-------+ (4) CRASH TEST (Sabotage humain via la CLI locale)
+ |    |  [ Pod : web-app ]    |   |           Commande: `kubectl scale --replicas=0`
+ |    |  (Environnement PROD) |   |
+ |    +-----------------------+   |           (5) REACTION DE SECURITE (Self-Healing)
+ |                                |               ArgoCD détecte la dérive (OutOfSync) et force
+ +--------------------------------+               le cluster Prod à recréer instantanément les 3 Pods.
+                                  
+=======================================================================================================================
+                                          COMMENTAIRES & FLUX ETAPE PAR ETAPE
+=======================================================================================================================
+```
+
+* ÉTAPE 1 [Le Développeur] : Vous poussez une modification (ex: changement d'image Docker) sur votre dépôt Git.
+* ÉTAPE 2 [ArgoCD - Hub]   : ArgoCD scrute en permanence le dépôt Git. Il compare l'état désiré (Git) avec l'état
+                             réel sur les clusters distants.
+* ÉTAPE 3 [Le Spoke]       : Grâce à l'ApplicationSet, ArgoCD distribue intelligemment le code. Le cluster Staging
+                             reçoit la configuration de recette et le cluster Prod reçoit la version finale.
+* ÉTAPE 4 [Le Sabotage]    : Pendant le crash test, vous simulez une fausse manipulation directement en SSH sur le
+                             cluster de production pour casser l'application.
+* ÉTAPE 5 [La Guérison]    : ArgoCD intercepte l'anomalie réseau/infrastructure. Il ignore l'action humaine et 
+                             ré-applique de force la vérité déclarée dans Git (Auto-Healing).
